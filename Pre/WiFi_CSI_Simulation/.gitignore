@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 outputs/
 .pytest_cache/
+build/
+dist/
+validation/studio_*/
+build-studio.log
