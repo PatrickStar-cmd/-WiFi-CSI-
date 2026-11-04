@@ -1,0 +1,7 @@
+# 本地工作文件与独立课程资料
+/.work/
+/通信系统/
+
+# 仿真打包文件与运行日志
+/Pre/*.zip
+/Pre/WiFi_CSI_Simulation/logs/

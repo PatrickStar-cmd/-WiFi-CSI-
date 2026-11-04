@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "feature_windows_s": [0.2, 0.4, 1.0],
+  "action_weight": {"still": 0.5, "walk": 0.25, "wave": 0.25},
+  "candidates": ["logistic_multiscale", "hgb7", "hgb15"],
+  "hgb_iterations": 160,
+  "hgb_learning_rate": 0.08,
+  "hgb_min_samples_leaf": 80,
+  "hgb_l2": 10.0,
+  "fusion_candidates": ["quality_mean", "max"],
+  "confirmation_candidates": [[1, 1], [2, 1]],
+  "off_threshold_ratios": [0.6, 1.0],
+  "threshold_quantiles": 257,
+  "overall_fpr_limit": 0.05,
+  "steady_static_fpr_limit": 0.01,
+  "strict_overall_fpr_limit": 0.01,
+  "fresh_scene_ids": [2000000, 2000001, 2000002, 2000003, 2000004, 2000005, 2000006, 2000007, 2000008, 2000009, 2000010, 2000011, 2000012, 2000013, 2000014, 2000015, 2000016, 2000017],
+  "fresh_noise_seeds": [401, 502, 603],
+  "selection": "maximum pooled validation motion F1 subject to both FPR constraints; model and fusion selected on four-link validation; all-window endpoint supervision",
+  "comparison_variants": ["O0_original", "T1_threshold", "A1_algorithm_strict", "A2_optimized"],
+  "references": ["https://scikit-learn.org/stable/modules/classification_threshold.html", "https://cswu.me/papers/ubicomp19_widetect_paper.pdf"]
+}

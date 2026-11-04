@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1152pt" height="648pt" viewBox="0 0 1152 648" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <title>Wi-Fi CSI人体运动感知研究路线</title>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title>Wi-Fi CSI人体运动感知研究路线</dc:title>
+    <dc:date>2026-11-02T19:35:18.864983</dc:date>
+    <dc:description>依据随附BibTeX原始论文归纳的五阶段研究路线；检索日期2026-11-02。</dc:description>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.2, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 648 
+L 1152 648 
+L 1152 0 
+L 0 0 
+z
+" style="fill: #f8ffe9"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 42.624 111.456 
+L 54.144 101.088 
+L 65.664 111.456 
+L 54.144 121.824 
+z
+" clip-path="url(#p4122ad7768)" style="fill: #454744; stroke: #454744; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 1094.4 355.752 
+L 1054.08 379.08 
+L 1054.08 363.528 
+L 69.12 363.528 
+L 69.12 347.976 
+L 1054.08 347.976 
+L 1054.08 332.424 
+z
+" clip-path="url(#p4122ad7768)" style="fill: #454744"/>
+   </g>
+   <g id="line2d_1">
+    <path d="M 40.32 81.648 
+L 1111.68 81.648 
+" clip-path="url(#p4122ad7768)" style="fill: none; stroke: #174f8b; stroke-width: 3.5"/>
+   </g>
+   <g id="line2d_2">
+    <path d="M 163.584 355.752 
+L 163.584 318.816 
+" clip-path="url(#p4122ad7768)" style="fill: none; stroke: #454744; stroke-width: 4"/>
+   </g>
+   <g id="line2d_3">
+    <path d="M 369.792 355.752 
+L 369.792 414.072 
+" clip-path="url(#p4122ad7768)" style="fill: none; stroke: #454744; stroke-width: 4"/>
+   </g>
+   <g id="line2d_4">
+    <path d="M 577.152 355.752 
+L 577.152 318.816 
+" clip-path="url(#p4122ad7768)" style="fill: none; stroke: #454744; stroke-width: 4"/>
+   </g>
+   <g id="line2d_5">
+    <path d="M 784.512 355.752 
+L 784.512 414.072 
+" clip-path="url(#p4122ad7768)" style="fill: none; stroke: #454744; stroke-width: 4"/>
+   </g>
+   <g id="line2d_6">
+    <path d="M 990.72 355.752 
+L 990.72 318.816 
+" clip-path="url(#p4122ad7768)" style="fill: none; stroke: #454744; stroke-width: 4"/>
+   </g>
+   <g id="line2d_7">
+    <path d="M 40.32 594.864 
+L 1111.68 594.864 
+" clip-path="url(#p4122ad7768)" style="fill: none; stroke: #174f8b; stroke-width: 3.5"/>
+   </g>
+   <g id="text_1">
+    <text style="font-size: 30px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start; fill: #174f8b" x="40.32" y="47.772188" transform="rotate(-0 40.32 47.772188)">Wi-Fi CSI人体运动感知研究进展</text>
+   </g>
+   <g id="text_2">
+    <text style="font-size: 23px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start; fill: #292b2b" x="78.336" y="117.106906" transform="rotate(-0 78.336 117.106906)">核心研究发展路线</text>
+   </g>
+   <g id="text_3">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="163.584" y="173.832187" transform="rotate(-0 163.584 173.832187)">CSI开放与早期检测</text>
+   </g>
+   <g id="text_4">
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #07516b" transform="translate(102.110406 211.382984)">CSI Tool · FIMD</text>
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #07516b" transform="translate(105.810562 232.512125)">E-eyes · WiFall</text>
+   </g>
+   <g id="text_5">
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(87.169 268.71429)">开放商用网卡CSI采集，</text>
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(69.334 291.887386)">依据时频变化检测人体运动，</text>
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(76.584 315.067278)">验证日常活动与跌倒识别。</text>
+   </g>
+   <g id="text_6">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="163.584" y="395.640211" transform="rotate(-0 163.584 395.640211)">2011—2014</text>
+   </g>
+   <g id="text_7">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="369.792" y="335.376211" transform="rotate(-0 369.792 335.376211)">2015—2017</text>
+   </g>
+   <g id="text_8">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="369.792" y="442.752187" transform="rotate(-0 369.792 442.752187)">运动建模与参数估计</text>
+   </g>
+   <g id="text_9">
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #07516b" x="369.792" y="475.828199" transform="rotate(-0 369.792 475.828199)">DeMan · CARM · Widar</text>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 15px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(257.292 517.522553)">建立信道变化与人体运动的联系，</text>
+    <text style="font-size: 15px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(272.292 541.487689)">融合幅相、速度与传播几何，</text>
+    <text style="font-size: 15px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(264.792 565.422357)">开展存在检测和运动轨迹估计。</text>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="577.152" y="173.781563" transform="rotate(-0 577.152 173.781563)">稳健检测与跨场景识别</text>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #07516b" transform="translate(486.709344 211.307281)">CrossSense · WiDetect</text>
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #07516b" transform="translate(540.842391 234.566734)">Widar3.0</text>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(475.652 268.748274)">统计电磁模型提升检测稳健性，</text>
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(490.152 291.894183)">迁移学习与人体速度表征，</text>
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(475.652 315.087669)">推动跨环境、位置和朝向识别。</text>
+   </g>
+   <g id="text_14">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="577.152" y="395.640211" transform="rotate(-0 577.152 395.640211)">2018—2019</text>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="784.512" y="335.376211" transform="rotate(-0 784.512 335.376211)">2020—2023</text>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="784.512" y="442.752187" transform="rotate(-0 784.512 442.752187)">姿态重建与统一评测</text>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #07516b" x="784.512" y="475.828199" transform="rotate(-0 784.512 475.828199)">WiPose · GoPose · SenseFi</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 15px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(687.012 517.472162)">利用空间谱和人体结构先验，</text>
+    <text style="font-size: 15px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(694.512 541.436127)">重建三维骨架与连续姿态，</text>
+    <text style="font-size: 15px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(687.012 565.430561)">建立模型库与多数据集评测。</text>
+   </g>
+   <g id="text_19">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="990.72" y="173.798437" transform="rotate(-0 990.72 173.798437)">多人场景与通用预训练</text>
+   </g>
+   <g id="text_20">
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #07516b" transform="translate(904.970937 211.382984)">WiMANS · CSI-Bench</text>
+    <text style="font-size: 17px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #07516b" transform="translate(943.036328 234.566734)">AmbientFM</text>
+   </g>
+   <g id="text_21">
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(889.22 268.727884)">扩展多人活动与真实家庭数据，</text>
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(903.72 291.894183)">通过大规模自监督预训练，</text>
+    <text style="font-size: 14.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #292b2b" transform="translate(889.22 315.067278)">学习可迁移的多任务感知表征。</text>
+   </g>
+   <g id="text_22">
+    <text style="font-size: 18px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #292b2b" x="990.72" y="395.640211" transform="rotate(-0 990.72 395.640211)">2024—2026</text>
+   </g>
+   <g id="text_23">
+    <text style="font-size: 10.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start; fill: #666962" x="40.32" y="620.515594" transform="rotate(-0 40.32 620.515594)">各阶段按代表性突破归纳，运动检测、活动识别与姿态估计持续并行发展</text>
+   </g>
+   <g id="text_24">
+    <text style="font-size: 10.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #666962" x="1111.68" y="620.545125" transform="rotate(-0 1111.68 620.545125)">原始论文与官方资料 · 截至2026-11-02</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p4122ad7768">
+   <rect x="0" y="0" width="1152" height="648"/>
+  </clipPath>
+ </defs>
+</svg>

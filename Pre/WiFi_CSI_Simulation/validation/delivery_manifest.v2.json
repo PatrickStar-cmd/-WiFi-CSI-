@@ -1,0 +1,52 @@
+{
+  "formal_results": "D:\\Work\\Study\\UESTC资料存档\\课程\\通信原理\\Pre\\WiFi_CSI_Simulation\\outputs\\core_20261104_v2",
+  "source_version": 2,
+  "executed_stages": [
+    "E0",
+    "E1",
+    "E2",
+    "demo"
+  ],
+  "original_execution": {
+    "command": "python -u run_simulation.py run --stages core --output outputs/core_20261104_v1",
+    "source_archive_sha256": "e1822d769944a74936a794d801114193924ed9621ed59de5203388488d9865b4"
+  },
+  "numerical_correction": {
+    "command": "python -u recompute_core.py --source outputs/core_20261104_v1 --output outputs/core_20261104_v2",
+    "training_weights_reused": true,
+    "raw_data_reused": true,
+    "threshold_selection": "original validation scenes"
+  },
+  "source_sha256": {
+    ".gitignore": "8ac17cb157f69ff4242867f91b28f71d7f4a0799d9ba0e53604c2ac1ebd72bb2",
+    "analyze_results.py": "c422aa8657f94f62a24e462cd4c72e6fe88e6a0d8946fa7b3825466a09886832",
+    "audit_results.py": "a53ed3cbf5a468de20e7cd5a0798385a4e2b645a799e8b306888b3103ebf3861",
+    "check_code.py": "b46608ccc770363175bf542c209c565b1924f23994d2fd8cffda00eab1ff04a5",
+    "configs/default.json": "7e045ccd21328c8a1a26d02bff3812d8f6ff2e7f19f419b2b9414f2fe47572ab",
+    "csi_sim/__init__.py": "9b9ef4558e9c57db712b46deb079726de947c61b3a0e73ec52b3f7282acef644",
+    "csi_sim/channel.py": "1b09412b279933fe4f571ff22ebf45550bf99ffd2f08dd8ea91ea0f3f4bbaf10",
+    "csi_sim/cnn.py": "75bb5dc4d4e75746a3a44c84a31b292b58c801b1f05c217388d2a4c01e568241",
+    "csi_sim/config.py": "1e0a8d56c05e9bba5c67491455c46a9ea505522a52e2ba2d1d6434837b3edac4",
+    "csi_sim/dataset.py": "f0350c61a967284c9ce6574da2d02e0cc0bf5ea27e69a770c9939da7e608bd45",
+    "csi_sim/evaluate.py": "59f6513d16f34d8363542231792892752daa439905253e83add219835b8b289e",
+    "csi_sim/features.py": "f0b16fa39123236401e9b0552433ab9757e8e6b098bd130fababef8d962ce33d",
+    "csi_sim/fusion.py": "84c17d339d3adb3be3bd3600f2a244789db7563e90887b21e563200663fb6b72",
+    "csi_sim/models.py": "52de07f2e89acab6bdb5e574ba85da5b3a3d2e2369e4add191aabd3736ee1890",
+    "csi_sim/ofdm.py": "3a86e0ebeb0c732056798a2db1d1d9a18e41e21a1b4c1ff62f6da131adaa7188",
+    "csi_sim/plots.py": "a1d755f006ec762e35bcba496bc82a4ac4ad19c2b224ae8511c3fee81c06bbf4",
+    "csi_sim/region.py": "28391eb27d27460e5e2235d0ef51b86a9cff286a3f583ee850f1363c97a68777",
+    "csi_sim/runner.py": "2ba70d6afa5d423d74a99f0f0576d981aa53ff3441752d2ecc1660f7aa93f2ae",
+    "csi_sim/scene.py": "bda417328a0d90d21d6b6f65c6618fb9f16f0306a033d38af96f6da052a72b40",
+    "csi_sim/utils.py": "65e90330c043b031b9875fcf712316a98ce9e53f030ef1a17b38ab02e2b7f1e7",
+    "diagnose_thresholds.py": "bfcfad6b9a04b4ceb043ba661bb74f106aec3eabf46026d3975f831d76273cf0",
+    "README.md": "004a83f8a1c06dd4737a6d88035536f9e7139a5464b7bbce7c44f89e5ba1d91f",
+    "recompute_core.py": "cb331445fd20c3f7932c4e768eb101f970af54fef6b3332b9970b7e0f8ab8dda",
+    "requirements-lock.txt": "9487d134c6fd57f16981b4690a0d3da651b562928ffc0d95ba07ccdd4a4357b2",
+    "requirements-torch.txt": "abb0cfc72363e6d1ea2bdcd28771c2478170c02031ba03f1eaa25836e2fc6720",
+    "requirements.txt": "e3d6e9a60fe8b88fa08f48fef59874fd708f0a9dd4019c6f6f7810207dd792ab",
+    "run_simulation.py": "821fa31482e9dd3177ddecaf61f92c3350e05df175172e63394b0182f22147fc",
+    "tests/test_contracts.py": "9ed1660e107f7754c65788016ae47eea2787f0eccd75aa27f281fc2266b29992"
+  },
+  "software_checks": "passed",
+  "result_audit": "passed"
+}
