@@ -2,13 +2,13 @@
 
 面向通信原理课程的 Wi-Fi CSI 人体运动感知仿真工具。在三维室内场景中布置收发节点、编排人体动作，沿时间轴观察 CSI 变化和运动检测结果。
 
-**[⬇️ 下载 Windows 版 v0.1.0](https://github.com/PatrickStar-cmd/-WiFi-CSI-/releases/download/v0.1.0/CSI.Studio.v0.1.0.Windows.zip)**（约 290 MB）
+**[⬇️ 下载 Windows 版 v0.2.4](https://github.com/PatrickStar-cmd/-WiFi-CSI-/releases/download/v0.2.4/CSI.Studio.v0.2.4.Windows.zip)**（约 312 MB）
 
-[查看发行页面](https://github.com/PatrickStar-cmd/-WiFi-CSI-/releases/tag/v0.1.0)
+[查看发行页面](https://github.com/PatrickStar-cmd/-WiFi-CSI-/releases/tag/v0.2.4)
 
 ## 🖼️ 界面预览
 
-![CSI Studio 运行截图，展示三维挥手场景、收发链路、CSI 波形及检测时间轴](docs/images/csi-studio-v0.1.0.png)
+![CSI Studio v0.1.0 运行截图，展示三维挥手场景、收发链路、CSI 波形及检测时间轴](docs/images/csi-studio-v0.1.0.png)
 
 ## ✨ 主要功能
 

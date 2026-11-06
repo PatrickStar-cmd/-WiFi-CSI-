@@ -1,47 +1,44 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CSI Studio</title>
-<link rel="stylesheet" href="style.css">
-<script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
-<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-</head><body>
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CSI Studio</title><link rel="stylesheet" href="style.css"><script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script><script src="qrc:///qtwebchannel/qwebchannel.js"></script></head>
+<body>
 <header class="toolbar">
-  <div class="brand"><img src="icon.svg" alt="">CSI Studio</div>
-  <select id="preset" aria-label="预设场景"></select>
-  <div class="spacer"></div>
-  <button id="open"><span class="ico">▱</span> 打开</button><button id="save"><span class="ico">▣</span> 保存</button>
-  <button id="compute" class="primary">计算仿真</button><button id="reset">↶ <span>恢复默认场景</span></button>
-  <div class="menu-wrap"><button id="export-menu">↥ 导出⌄</button><div class="menu hidden" id="export-options"><button data-export="image">导出图片</button><button data-export="data">导出数据</button><button data-export="slides">导出汇报幻灯片</button></div></div>
-  <button id="guide" class="guide-toggle" title="引导模式"><span class="switch"></span><span>引导模式</span></button>
+ <div class="brand"><svg viewBox="0 0 28 28"><path d="M5 23v-5m6 5V12m6 11V7m6 16V3"/></svg>CSI Studio</div>
+ <div class="preset"><select id="preset"></select><i data-icon="chevron-down"></i></div>
+ <div class="spacer"></div>
+ <button id="open" class="quiet"><i data-icon="folder-open"></i>打开</button><button id="save" class="quiet"><i data-icon="save"></i>保存</button>
+ <button id="compute" class="primary"><i data-icon="zap"></i>计算仿真</button>
+ <div class="menu-wrap"><button id="export-menu" class="icon-button quiet" title="导出"><i data-icon="download"></i></button><div id="export-options" class="menu hidden"><button data-export="image">导出图片</button><button data-export="data">导出数据</button><button data-export="slides">导出汇报幻灯片</button></div></div>
+ <button id="demo" class="quiet"><i data-icon="monitor"></i><span>演示模式</span></button>
+ <button id="guide" class="quiet guide" title="恢复当前预设并打开引导"><span class="switch"></span>引导模式</button>
 </header>
 <main>
- <aside id="inspector">
-  <nav class="tabs inspector-tabs"><button data-tab="scene">场景</button><button data-tab="nodes" class="active">节点</button><button data-tab="actions">动作</button></nav>
-  <div id="properties"></div>
- </aside>
- <section id="viewport">
-  <div id="scene-canvas"></div><div id="scene-labels"></div>
-  <div class="view-controls"><div class="segmented"><button id="view-3d" class="active">3D</button><button id="view-top">俯视</button></div>
-   <div class="menu-wrap"><button id="layers-button">▦ 图层⌄</button><div id="layers-menu" class="menu hidden"><label><input type="checkbox" data-layer="fresnel" checked>菲涅尔区</label><label><input type="checkbox" data-layer="links" checked>链路</label><label><input type="checkbox" data-layer="path" checked>轨迹</label><label><input type="checkbox" data-layer="furniture" checked>家具</label></div></div>
-  </div>
-  <div class="viewport-bottom"><button id="camera-reset" title="恢复视角">⌖</button><button id="add-point" class="hidden">＋ 路径点</button></div>
-  <div id="furniture-popover" class="world-label hidden"></div>
+ <nav class="rail">
+  <button data-tab="scene"><i data-icon="box"></i><span>场景</span></button>
+  <button data-tab="nodes" class="active"><i data-icon="network"></i><span>节点</span></button>
+  <button data-tab="actions"><i data-icon="person-standing"></i><span>动作</span></button>
+ </nav>
+ <section id="viewport"><div id="scene-canvas"></div><svg id="leaders"></svg><div id="scene-labels"></div>
+  <div class="view-controls"><div class="segmented"><button id="view-3d" class="active">3D</button><button id="view-top">俯视</button></div><button id="layers-button"><i data-icon="layers"></i>图层<i class="small" data-icon="chevron-down"></i></button></div>
+  <div id="layers-menu" class="hidden"><label><input type="checkbox" data-layer="fresnel" checked>菲涅尔区</label><label><input type="checkbox" data-layer="links" checked>链路</label><label><input type="checkbox" data-layer="path" checked>轨迹</label><label><input type="checkbox" data-layer="furniture" checked>家具</label></div>
+  <div id="furniture-popover" class="world-label hidden"></div><aside id="inspector-floating" class="hidden"><div class="inspector-heading"><b id="inspector-title">节点</b><button id="add-node" class="icon-button quiet" title="添加节点"><i data-icon="plus"></i></button><button id="inspector-close" class="icon-button quiet" title="收起参数"><i data-icon="x"></i></button></div><div id="properties"></div></aside>
+  <div class="viewport-bottom"><button id="camera-reset" class="icon-button" title="恢复视角"><i data-icon="focus"></i></button><button id="add-point" class="hidden">＋ 路径点</button></div>
   <div id="busy" class="hidden"><div><span class="spinner"></span><b id="progress-label">静态校准</b><progress id="progress" max="100" value="0"></progress></div></div>
  </section>
  <aside id="results">
-  <section class="card state-card"><div>真值：<strong id="truth-state">停留</strong></div><div>预测：<strong id="prediction-state">—</strong> <span id="agreement"></span></div><div class="state-meta">算法：优化算法 · <span class="fusion-label">四链路融合</span></div></section>
-  <section class="card plot-card" id="score-card"><div class="card-heading"><b>检测分数</b><div class="legend"><span><i class="single"></i><span id="single-label">单链路 AC</span></span><span><i class="fusion"></i><span class="fusion-label">四链路融合</span></span></div></div><canvas id="score-chart"></canvas><div class="empty-overlay">运行后生成</div></section>
-  <section class="card plot-card" id="csi-card"><div class="csi-heading"><nav class="tabs compact"><button data-csi="amplitude" class="active">幅度</button><button data-csi="phase">相位</button><button data-csi="heatmap">子载波热力图</button><button data-csi="spectrum">时频谱</button></nav><select id="link" aria-label="链路"></select></div><canvas id="csi-chart"></canvas><div class="empty-overlay">运行后生成</div></section>
-  <section class="card metric-card"><div><label>F1</label><b id="metric-f1">—</b></div><div><label>精确率</label><b id="metric-precision">—</b></div><div><label>召回率</label><b id="metric-recall">—</b></div><div><label>误报率</label><b id="metric-fpr">—</b></div><div><label>平均延迟</label><b id="metric-delay">—</b></div><div><label>链路</label><b id="metric-links">—</b></div></section>
-  <button id="compare-toggle" class="compare-toggle">▸ 算法对比 <span>原始 vs 优化 · 单链路 vs 融合</span></button>
+  <section class="card link-card"><div class="link-selector"><span>链路</span><div class="select-wrap"><select id="link"></select><i data-icon="chevron-down"></i></div><span class="tag" id="link-count"></span></div><div class="meta">算法：<span class="fusion-label">四链路融合</span></div></section>
+  <section class="card summary-card"><div class="state"><span id="truth-state">挥手</span><i data-icon="arrow-right"></i><strong id="prediction-state">—</strong><span id="agreement"></span></div><div class="metric-grid"><div><strong class="metric-value"><span class="metric-number" id="metric-f1">—</span></strong><span class="metric-label">F1</span></div><div><strong class="metric-value"><span class="metric-number" id="metric-recall">—</span></strong><span class="metric-label">召回率</span></div><div><strong class="metric-value"><span class="metric-number" id="metric-delay">—</span><small id="metric-delay-unit" class="hidden">s</small></strong><span class="metric-label">平均延迟</span></div></div><button class="more" id="more"><span id="more-label">运行后生成</span><i class="small" data-icon="chevron-right"></i></button><div id="more-metrics" class="hidden"><span>精确率 <b id="metric-precision">—</b></span><span>误报率 <b id="metric-fpr">—</b></span><span>链路 <b id="metric-links">—</b></span></div></section>
+  <section class="card links-card"><div class="card-heading"><b>四链路状态</b><span id="link-valid">— / 4</span></div><div class="link-grid"></div></section>
+  <button class="card compare" id="compare-toggle"><b><i data-icon="chevron-right"></i>算法对比</b><span>原始 vs 优化</span></button>
  </aside>
 </main>
-<section id="timeline-section">
- <div class="playback-toolbar"><button id="play" class="icon-button" title="播放 / 暂停（空格）">▶</button><button id="step-back" class="icon-button" title="上一帧">◀Ⅰ</button><button id="step-forward" class="icon-button" title="下一帧">Ⅰ▶</button><select id="speed" aria-label="回放速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select><time id="time-display">00:12.4 / 00:30.0</time><div class="spacer"></div><button data-add-action="walk">＋ 走动</button><button data-add-action="still">＋ 停留</button><button data-add-action="wave">＋ 挥手</button><label class="zoom"><span>−</span><input id="zoom" type="range" min="1" max="4" step=".25" value="1" aria-label="时间轴缩放"><span>＋</span></label></div>
- <div id="timeline-scroll"><canvas id="timeline"></canvas></div>
+<section id="time-section">
+ <div class="playbar"><button id="play" class="icon-button" title="播放"><i data-icon="play"></i></button><button id="step-back" class="icon-button quiet" title="上一帧"><i data-icon="step-back"></i></button><button id="step-forward" class="icon-button quiet" title="下一帧"><i data-icon="step-forward"></i></button><div class="select-wrap speed"><select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select><i data-icon="chevron-down"></i></div><time id="time-display">00:12.4 <span>/ 00:30.0</span></time><div class="spacer"></div><button class="quiet" data-add-action="walk"><i data-icon="plus"></i>走动</button><button class="quiet" data-add-action="still"><i data-icon="plus"></i>停留</button><button class="quiet" data-add-action="wave"><i data-icon="plus"></i>挥手</button><div class="zoom"><i data-icon="minus"></i><input id="zoom" type="range" min="1" max="3" step=".25" value="1"><i data-icon="plus"></i></div></div>
+ <div id="stack"><div id="labels"><div class="ruler-label"></div><div class="track-label truth-label">动作（真值）</div><div class="track-label csi-label"><b id="csi-title">AC的CSI时频谱</b><span class="range" id="csi-range">— Hz</span><div class="mini-tabs"><button data-csi="amplitude">幅　度</button><button data-csi="phase">相　位</button><button data-csi="heatmap">热力图</button><button data-csi="spectrum" class="active">时频谱</button></div></div><div class="track-label score-label"><b>检测分数</b><span class="legend"><i class="single"></i><span id="single-label">单链路 AC</span></span><span class="legend"><i class="fused"></i><span class="fusion-label">四链路融合</span></span></div><div class="track-label" id="single-track-label">单链路 AC 检测</div><div class="track-label" id="fusion-track-label">四链路融合检测</div></div><div id="plot-scroll"><canvas id="stacked"></canvas></div></div>
 </section>
-<footer id="status">就绪</footer>
-<section id="compare-drawer" class="hidden"><div class="drawer-heading"><b>算法对比</b><span id="comparison-improvement"></span><button id="compare-close" class="icon-button">×</button></div><div class="comparison-grid"></div></section>
+<section id="compare-drawer" class="hidden"><div class="drawer-heading"><b>算法对比</b><span id="comparison-improvement"></span><button id="compare-close" class="icon-button quiet"><i data-icon="x"></i></button></div><div class="comparison-grid"></div></section>
+<footer><span><i class="status-dot"></i><span id="status">就绪</span></span><span id="status-radio"></span></footer>
+
 <div id="guide-overlay" class="hidden"><button id="guide-close">完成</button><div class="guide-bubble one">① 配置场景与节点</div><div class="guide-bubble two">② 点击计算仿真</div><div class="guide-bubble three">③ 拖动时间轴查看结果</div></div>
-<div id="toast" class="hidden"></div>
-<dialog id="error-dialog"><b>请检查配置</b><pre id="error-text"></pre><button id="error-close">确定</button></dialog>
+<div id="toast" class="hidden"></div><dialog id="error-dialog"><b>请检查配置</b><pre id="error-text"></pre><button id="error-close">确定</button></dialog>
 <script type="module" src="app.js"></script>
 </body></html>

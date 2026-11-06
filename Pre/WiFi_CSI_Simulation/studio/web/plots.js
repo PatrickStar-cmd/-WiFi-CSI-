@@ -1,99 +1,56 @@
-import {total,actionSegments,names,clamp} from './motion.mjs';
-const C={ink:'#292824',muted:'#7f7c74',line:'#c5c1b7',single:'#91a0b5',fusion:'#394b63',red:'#c73c39',amber:'#b48222',walk:'#dce5cf',still:'#eae3d7',wave:'#ddd2ed',bg:'#faf9f5'};
-export function canvasContext(canvas){
- const rect=canvas.getBoundingClientRect(),w=Math.max(1,rect.width),h=Math.max(1,rect.height),d=Math.min(devicePixelRatio,2);
- if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){canvas.width=Math.round(w*d);canvas.height=Math.round(h*d);}
- const ctx=canvas.getContext('2d');ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,w,h);ctx.font='14px "Microsoft YaHei"';ctx.textBaseline='middle';return {ctx,w,h};
-}
+import {total,actionSegments,pointTimes,names,clamp} from './motion.mjs';
+const C={single:'#9baac2',fusion:'#415b81',bar:'#506789',pink:'#ff4081',walk:'#dbf1e7',still:'#edf0f4',wave:'#ffe8d8'};
+const font=(size=14,weight=450)=>`${weight} ${size}px "UI Sans"`;
 export const indexAt=(times,t)=>{let lo=0,hi=times.length;while(lo<hi){const m=(lo+hi)>>1;if(times[m]<=t+1e-8)lo=m+1;else hi=m;}return Math.max(0,lo-1);};
+function context(canvas){const r=canvas.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height),d=Math.min(devicePixelRatio,2);if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){canvas.width=Math.round(w*d);canvas.height=Math.round(h*d);}const c=canvas.getContext('2d');c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,w,h);c.font=font();c.textBaseline='middle';return{c,w,h};}
+function bar(c,x,y,w,h,color,radius=6){if(w<=0||h<=0)return;c.fillStyle=color;c.beginPath();c.roundRect(x,y,w,h,Math.min(radius,w/2,h/2));c.fill();}
 function ticks(duration){const step=duration<=12?2:duration<=40?5:duration<=80?10:30;const a=[];for(let t=0;t<=duration;t+=step)a.push(t);if(a.at(-1)<duration-.5)a.push(duration);return a;}
-function frame(ctx,w,h,duration,min=0,max=1){
- const r={x:42,y:22,w:Math.max(10,w-57),h:Math.max(10,h-51),min,max};r.tx=t=>r.x+t/duration*r.w;r.ty=v=>r.y+r.h-(v-min)/(max-min)*r.h;
- ctx.strokeStyle=C.line;ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(r.x,r.y);ctx.lineTo(r.x,r.y+r.h);ctx.lineTo(r.x+r.w,r.y+r.h);ctx.stroke();ctx.fillStyle=C.ink;
- for(const value of [min,(min+max)/2,max]){const y=r.ty(value);ctx.textAlign='right';ctx.fillText(Math.abs(value)<1e-7?'0':Math.abs(value)>=10?value.toFixed(0):value.toFixed(1),r.x-7,y);}
- ctx.textAlign='center';for(const t of ticks(duration)){const x=r.tx(t);ctx.beginPath();ctx.moveTo(x,r.y+r.h);ctx.lineTo(x,r.y+r.h+4);ctx.stroke();ctx.fillText(`${Number(t.toFixed(1))} s`,x,r.y+r.h+17);}
- return r;
+function frame(x,y,w,h,duration,min=0,max=1){return{x,y,w,h,tx:t=>x+t/duration*w,ty:v=>y+h-(v-min)/(max-min)*h,min,max};}
+function line(c,r,times,values,color,width=2,fill=false){
+ c.save();c.beginPath();c.rect(r.x,r.y,r.w,r.h);c.clip();c.lineJoin='round';c.lineCap='round';c.strokeStyle=color;c.lineWidth=width;
+ let start=0;while(start<values.length){while(start<values.length&&!Number.isFinite(values[start]))start++;if(start===values.length)break;let end=start+1;while(end<values.length&&Number.isFinite(values[end]))end++;
+  c.beginPath();for(let i=start;i<end;i++){const x=r.tx(times[i]),y=r.ty(values[i]);if(i===start)c.moveTo(x,y);else c.lineTo(x,y);}c.stroke();
+  if(fill){c.lineTo(r.tx(times[end-1]),r.y+r.h);c.lineTo(r.tx(times[start]),r.y+r.h);c.closePath();const g=c.createLinearGradient(0,r.y,0,r.y+r.h);g.addColorStop(0,color+'25');g.addColorStop(1,color+'00');c.fillStyle=g;c.fill();}start=end;
+ }c.restore();
 }
-function line(ctx,r,times,values,color,width=1.4){
- ctx.save();ctx.beginPath();ctx.rect(r.x,r.y,r.w,r.h);ctx.clip();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();let pen=false;
- for(let i=0;i<values.length;i++){if(values[i]===null||!Number.isFinite(values[i])){pen=false;continue;}const x=r.tx(times[i]),y=r.ty(values[i]);if(pen)ctx.lineTo(x,y);else ctx.moveTo(x,y);pen=true;}ctx.stroke();ctx.restore();
-}
-function cursor(ctx,r,time,label=true){const x=r.tx(time);ctx.strokeStyle=C.red;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(x,r.y-4);ctx.lineTo(x,r.y+r.h);ctx.stroke();if(label){const text=`${time.toFixed(1)} s`;ctx.font='14px "Segoe UI"';ctx.textAlign='center';const width=ctx.measureText(text).width+10;ctx.fillStyle=C.red;ctx.beginPath();ctx.roundRect(x-width/2,r.y-20,width,17,4);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(text,x,r.y-11);}}
-export function drawScores(canvas,app){
- const {ctx,w,h}=canvasContext(canvas),duration=total(app.project),r=frame(ctx,w,h,duration);
- canvas.plotRect=r;
- if(app.data){const results=app.data.series.optimized;line(ctx,r,app.data.decisionTime,results.links[app.link].score,C.single,1.3);line(ctx,r,app.data.decisionTime,results.fused.score,C.fusion,2);}
- ctx.strokeStyle='#898b84';ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(r.x,r.ty(app.threshold));ctx.lineTo(r.x+r.w,r.ty(app.threshold));ctx.stroke();ctx.setLineDash([]);
- ctx.fillStyle=C.bg;ctx.beginPath();ctx.arc(r.x+r.w,r.ty(app.threshold),4,0,2*Math.PI);ctx.fill();ctx.stroke();
- ctx.font='14px "Microsoft YaHei"';ctx.fillStyle='#66665f';ctx.textAlign='right';ctx.fillText(`阈值 ${app.threshold.toFixed(2)}`,r.x+r.w-3,r.ty(app.threshold)-12);
- if(app.data)cursor(ctx,r,app.time);
-}
-const heatCache=new WeakMap();
+function interpolated(times,values,t){const i=indexAt(times,t);if(i===times.length-1||!Number.isFinite(values[i])||!Number.isFinite(values[i+1]))return values[i];const u=clamp((t-times[i])/(times[i+1]-times[i]),0,1);return values[i]+u*(values[i+1]-values[i]);}
+const palette=[[0,[246,248,252]],[.18,[231,236,247]],[.36,[201,213,239]],[.56,[159,183,229]],[.76,[113,145,208]],[.91,[88,110,179]],[1,[69,77,142]]];
+function heatColor(q){let i=1;while(i<palette.length-1&&q>palette[i][0])i++;const[a,A]=palette[i-1],[b,B]=palette[i],v=clamp((q-a)/(b-a),0,1);return A.map((c,j)=>Math.round(c+(B[j]-c)*v));}
+const heatCache=new WeakMap(),smoothCache=new WeakMap(),bandCache=new WeakMap();
+function spectrumBand(trace){if(!bandCache.has(trace.spectrum)){const n=trace.frequencies.filter(f=>f<=8).length;bandCache.set(trace.spectrum,{matrix:trace.spectrum.slice(0,n),max:trace.frequencies[n-1]});}return bandCache.get(trace.spectrum);}
 function heatImage(matrix){
- if(heatCache.has(matrix))return heatCache.get(matrix);
- const rows=matrix.length,cols=matrix[0].length,can=document.createElement('canvas');can.width=cols;can.height=rows;const ctx=can.getContext('2d'),im=ctx.createImageData(cols,rows);
+ if(heatCache.has(matrix))return heatCache.get(matrix);const rows=matrix.length,cols=matrix[0].length,can=document.createElement('canvas');can.width=cols;can.height=rows;const ctx=can.getContext('2d'),im=ctx.createImageData(cols,rows);
  const flat=matrix.flat().filter(Number.isFinite).sort((a,b)=>a-b),lo=flat[Math.floor(flat.length*.02)],hi=flat[Math.floor(flat.length*.98)];
- for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){const f=clamp((matrix[row][col]-lo)/(hi-lo||1),0,1),i=((rows-1-row)*cols+col)*4;
-  const low=[45,59,83],high=[229,217,151];for(let k=0;k<3;k++)im.data[i+k]=Math.round(low[k]*(1-f)+high[k]*f);im.data[i+3]=255;}
- ctx.putImageData(im,0,0);heatCache.set(matrix,can);return can;
+ for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){const i=((rows-1-row)*cols+col)*4,rgb=heatColor(clamp((matrix[row][col]-lo)/(hi-lo||1),0,1));im.data.set([...rgb,255],i);}ctx.putImageData(im,0,0);const out={image:can,lo,hi};heatCache.set(matrix,out);return out;
 }
-export function drawCSI(canvas,app){
- const {ctx,w,h}=canvasContext(canvas),duration=total(app.project);
- if(!app.data){frame(ctx,w,h,duration);return;}
- const trace=app.data.traces[app.link],mode=app.csiMode;
- if(mode==='amplitude'||mode==='phase'){
-  const values=trace[mode],finite=values.filter(Number.isFinite),lo=Math.min(...finite),hi=Math.max(...finite),margin=Math.max((hi-lo)*.08,.02);
-  const r=frame(ctx,w,h,duration,mode==='amplitude'?Math.max(0,lo-margin):lo-margin,hi+margin);
-  line(ctx,r,app.data.time,values,'#555950',1);cursor(ctx,r,app.time);canvas.plotRect=r;
- }else{
-  const isHeat=mode==='heatmap',matrix=isHeat?trace.heatmap:trace.spectrum;
-  const r=frame(ctx,w,h,duration,isHeat?-28:0,isHeat?28:trace.frequencies.at(-1));
-  const stamps=isHeat?trace.heatTime:trace.spectrumTime;
-  const step=stamps.length>1?stamps[1]-stamps[0]:duration;
-  const start=isHeat?stamps[0]:stamps[0]-step/2,end=stamps.at(-1)+(isHeat?step:step/2);
-  ctx.save();ctx.beginPath();ctx.rect(r.x,r.y,r.w,r.h);ctx.clip();ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(heatImage(matrix),r.tx(start),r.y,r.tx(end)-r.tx(start),r.h);ctx.restore();cursor(ctx,r,app.time);canvas.plotRect=r;
- }
-}
-function roundedBar(ctx,x,y,w,h,color){if(w<.1)return;ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,Math.min(3,w/2));ctx.fill();}
-function hatch(ctx,x,y,w,h){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle='#fff9f5';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#d46a66';ctx.lineWidth=.7;for(let p=x-h;p<x+w+h;p+=7){ctx.beginPath();ctx.moveTo(p,y+h);ctx.lineTo(p+h,y);ctx.stroke();}ctx.restore();ctx.strokeStyle=C.red;ctx.lineWidth=.6;ctx.strokeRect(x,y,w,h);if(w>37){ctx.font='14px "Microsoft YaHei"';ctx.textAlign='center';ctx.fillStyle=C.red;const tw=ctx.measureText('漏检').width;ctx.fillStyle='#fff9f5';ctx.fillRect(x+w/2-tw/2-2,y+2,tw+4,h-4);ctx.fillStyle=C.red;ctx.fillText('漏检',x+w/2,y+h/2);}}
+function smoothed(values,rate){if(smoothCache.has(values))return smoothCache.get(values);const n=Math.max(1,Math.round(rate*.2));let sum=0;const out=values.map((v,i)=>{sum+=v;if(i>=n)sum-=values[i-n];return sum/Math.min(n,i+1);});smoothCache.set(values,out);return out;}
+function placeholder(c,r,text){c.save();c.beginPath();c.rect(r.x,r.y,r.w,r.h);c.clip();c.strokeStyle='#e2e9f3';c.lineWidth=2;c.beginPath();for(let x=0;x<=r.w;x+=3){const y=r.y+r.h*.55+Math.sin(x/23)*Math.exp(-Math.pow((x-r.w*.5)/(r.w*.23),2))*r.h*.14;if(x)c.lineTo(r.x+x,y);else c.moveTo(r.x+x,y);}c.stroke();c.font=font(13);c.textAlign='center';const tw=c.measureText(text).width;bar(c,r.x+r.w/2-tw/2-10,r.y+r.h/2-12,tw+20,24,'#ffffffec');c.fillStyle='#98a6b9';c.fillText(text,r.x+r.w/2,r.y+r.h/2);c.restore();}
 function intervals(times,states,end){const a=[];for(let i=0;i<times.length;i++){const finish=i+1<times.length?times[i+1]:end;if(a.length&&a.at(-1).state===states[i])a.at(-1).end=finish;else a.push({start:times[i],end:finish,state:states[i]});}return a;}
 function errors(project,times,states){
  const ss=actionSegments(project),end=total(project),bounds=[...new Set([0,end,...times,...ss.map(s=>s.start),...ss.map(s=>s.end)])].sort((a,b)=>a-b),result=[];
- for(let i=0;i<bounds.length-1;i++){const a=bounds[i],b=bounds[i+1],mid=(a+b)/2,s=ss.find(x=>mid>=x.start&&mid<x.end),truth=project.present&&s?.kind!=='still',prediction=states[indexAt(times,mid)],kind=prediction<0?'unknown':truth&&prediction===0?'fn':!truth&&prediction===1?'fp':null;
-  if(!kind)continue;if(result.length&&result.at(-1).kind===kind&&Math.abs(result.at(-1).end-a)<1e-6)result.at(-1).end=b;else result.push({start:a,end:b,kind});}
- return result;
+ for(let i=0;i<bounds.length-1;i++){const a=bounds[i],b=bounds[i+1],mid=(a+b)/2,s=ss.find(x=>mid>=x.start&&mid<x.end),truth=project.present&&s?.kind!=='still',prediction=states[indexAt(times,mid)],kind=prediction<0?'unknown':truth&&prediction===0?'fn':!truth&&prediction===1?'fp':null;if(!kind)continue;if(result.length&&result.at(-1).kind===kind&&Math.abs(result.at(-1).end-a)<1e-6)result.at(-1).end=b;else result.push({start:a,end:b,kind});}return result;
 }
-export function drawTimeline(canvas,app){
- const {ctx,w,h}=canvasContext(canvas),duration=total(app.project),left=158,right=22,top=29,rowH=(h-top-7)/3,barH=Math.min(24,rowH-7),tx=t=>left+t/duration*(w-left-right);
- canvas.axis={left,right,width:w,duration,top,rowH,tx};
- ctx.strokeStyle=C.line;ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(left,top-5);ctx.lineTo(w-right,top-5);ctx.stroke();
- ctx.font='14px "Segoe UI"';ctx.fillStyle=C.ink;ctx.textAlign='center';for(const t of ticks(duration)){const x=tx(t);ctx.fillText(`${Number(t.toFixed(1))} s`,x,10);ctx.beginPath();ctx.moveTo(x,top-13);ctx.lineTo(x,top-5);ctx.stroke();}
- for(let t=0;t<=duration;t++){const x=tx(t);ctx.beginPath();ctx.moveTo(x,top-9);ctx.lineTo(x,top-5);ctx.stroke();}
- const labels=['动作（真值）',`单链路 ${app.link}`,app.links.length===4?'四链路融合':'多链路融合'];
- for(let row=0;row<3;row++){const y=top+row*rowH+(rowH-barH)/2;roundedBar(ctx,left,y,w-left-right,barH,'#eeefec');ctx.font='600 14px "Microsoft YaHei"';ctx.fillStyle=C.ink;ctx.textAlign='left';ctx.fillText(labels[row],18,y+barH/2);}
- const segments=app.project.present?actionSegments(app.project):[{start:0,end:duration,kind:'empty'}];
- ctx.font='14px "Microsoft YaHei"';ctx.textAlign='center';
- for(let i=0;i<segments.length;i++){
-  const s=segments[i],x=tx(s.start),width=tx(s.end)-x,y=top+(rowH-barH)/2;
-  roundedBar(ctx,x,y,width-1,barH,C[s.kind]||C.still);ctx.save();ctx.beginPath();ctx.rect(x,y,width,barH);ctx.clip();ctx.fillStyle=C.ink;
-  let label=names[s.kind];if(s.kind==='walk'){const from=app.project.points.find(p=>Math.hypot(p.position[0]-s.p0[0],p.position[1]-s.p0[1])<.01)?.id||'';if(width>90)label+=` ${from}→${s.target}`;}
-  ctx.fillText(label,x+width/2,y+barH/2);ctx.restore();
- }
- if(app.data){const results=app.data.series.optimized;
-  for(const [row,data] of [[1,results.links[app.link]],[2,results.fused]]){
-   const y=top+row*rowH+(rowH-barH)/2;
-   for(const it of intervals(app.data.decisionTime,data.state,duration))if(it.state===1)roundedBar(ctx,tx(it.start),y,tx(it.end)-tx(it.start),barH,C.fusion);
-   for(const e of errors(app.project,app.data.decisionTime,data.state)){
-    const x=tx(e.start),width=tx(e.end)-x;
-    if(e.kind==='fn')hatch(ctx,x,y,width,barH);else if(e.kind==='fp'){ctx.strokeStyle=C.amber;ctx.lineWidth=1.4;ctx.strokeRect(x,y+.5,width,barH-1);}else {ctx.strokeStyle='#999';ctx.setLineDash([3,3]);ctx.strokeRect(x,y,width,barH);ctx.setLineDash([]);}
-   }
+function detection(c,r,app,row){const y=r.y+4,h=Math.max(8,r.h-8),duration=total(app.project);for(const it of intervals(app.data.decisionTime,row.state,duration))if(it.state===1)bar(c,r.tx(it.start),y,r.tx(it.end)-r.tx(it.start),h,C.bar);for(const e of errors(app.project,app.data.decisionTime,row.state)){const x=r.tx(e.start),w=r.tx(e.end)-x;bar(c,x,y,w,h,e.kind==='fn'?'#fce8ec':e.kind==='fp'?'#fbedd8':'#eef1f5');if(w>44&&e.kind!=='unknown'){bar(c,x+w/2-21,y,42,h,e.kind==='fn'?'#fff3f6':'#fff6e8');c.textAlign='center';c.font=font(11,500);c.fillStyle=e.kind==='fn'?'#cc7a8e':'#b28c52';c.fillText(e.kind==='fn'?'漏检':'误报',x+w/2,y+h/2);}}}
+export function drawStacked(canvas,app){
+ const {c,w,h}=context(canvas),duration=total(app.project),body=getComputedStyle(document.body),rh=name=>parseFloat(body.getPropertyValue('--'+name+'-h'));
+ const ruler=rh('ruler'),rows={};let y=ruler;for(const key of ['truth','csi','score','single','fused']){const height=rh(key==='single'||key==='fused'?'detect':key);rows[key]=[y,height];y+=height;}
+ const left=16,right=86,end=w-right,plotW=end-left,tx=t=>left+t/duration*plotW;canvas.axis={left,right,width:w,end,duration,tx,rows,ruler,plotW};c.fillStyle='white';c.fillRect(0,0,w,h);
+ for(const t of ticks(duration)){const x=tx(t);c.strokeStyle='#eff2f6';c.lineWidth=1;c.beginPath();c.moveTo(x,ruler);c.lineTo(x,h);c.stroke();}
+ const keys=Object.entries(pointTimes(app.project)).map(([id,t])=>({id,t,x:tx(t)}));canvas.axis.keys=keys;c.textAlign='center';c.font=font(13);c.fillStyle='#7e90a9';c.strokeStyle='#e0e6ee';const rulerLabelY=Math.min(19,ruler*.4),keyY=ruler-5;
+ for(let t=0;t<=duration;t++){c.beginPath();c.moveTo(tx(t),ruler-5);c.lineTo(tx(t),ruler);c.stroke();}for(const t of ticks(duration)){const x=tx(t);c.beginPath();c.moveTo(x,ruler-9);c.lineTo(x,ruler);c.stroke();if(!keys.some(k=>Math.abs(k.x-x)<48))c.fillText(t+' s',x,rulerLabelY);}
+ let lastKey=-Infinity;for(const k of keys.sort((a,b)=>a.t-b.t)){c.fillStyle='#899bb5';c.beginPath();c.moveTo(k.x,keyY-3);c.lineTo(k.x+3,keyY);c.lineTo(k.x,keyY+3);c.lineTo(k.x-3,keyY);c.closePath();c.fill();if(k.x-lastKey>86&&Math.abs(k.x-tx(app.time))>68){c.font=font(12);c.fillText(`${k.id} · ${k.t.toFixed(1)} s`,k.x,rulerLabelY);lastKey=k.x;}}
+ const segments=app.project.present?actionSegments(app.project):[{start:0,end:duration,kind:'empty'}];for(const s of segments){const x=tx(s.start),width=tx(s.end)-x,y=rows.truth[0]+4,bh=rows.truth[1]-8;bar(c,x+.5,y,width-2,bh,C[s.kind]||C.still);c.save();c.beginPath();c.rect(x,y,width,bh);c.clip();let label=names[s.kind];if(s.kind==='walk'&&width>105){const from=app.project.points.find(p=>Math.hypot(...p.position.map((v,i)=>v-s.p0[i]))<.01)?.id||'';label+=` ${from}→${s.target}`;}c.font=font(13);c.fillStyle='#6a7b8e';c.textAlign='center';c.fillText(label,x+width/2,y+bh/2);c.restore();}
+ const cr=frame(left,rows.csi[0]+8,plotW,rows.csi[1]-16,duration),sr=frame(left,rows.score[0]+8,plotW,rows.score[1]-16,duration);canvas.axis.score=sr;
+ if(app.data){
+  const trace=app.data.traces[app.link],mode=app.csiMode;
+  if(mode==='amplitude'||mode==='phase'){const vals=trace[mode],finite=vals.filter(Number.isFinite),lo=Math.min(...finite),hi=Math.max(...finite),margin=Math.max(.02,(hi-lo)*.08),r=frame(cr.x,cr.y,cr.w,cr.h,duration,lo-margin,hi+margin);document.querySelector('#csi-range').textContent=`${(lo-margin).toFixed(2)}–${(hi+margin).toFixed(2)}${mode==='phase'?' rad':''}`;line(c,r,app.data.time,vals,'#c8d1da',2);line(c,r,app.data.time,mode==='amplitude'?smoothed(vals,app.project.radio.rate):vals,'#477f83',2.3);
+  }else{const isHeat=mode==='heatmap',matrix=isHeat?trace.heatmap:spectrumBand(trace).matrix,stamps=isHeat?trace.heatTime:trace.spectrumTime,im=heatImage(matrix),step=stamps.length>1?stamps[1]-stamps[0]:duration,start=isHeat?stamps[0]:stamps[0]-step/2,finish=stamps.at(-1)+(isHeat?step:step/2);document.querySelector('#csi-range').textContent=isHeat?'−28…−1 · 1…28':`0–${spectrumBand(trace).max.toFixed(1)} Hz`;c.save();c.beginPath();c.roundRect(cr.x,cr.y,cr.w,cr.h,6);c.clip();c.imageSmoothingEnabled=true;c.drawImage(im.image,tx(start),cr.y,tx(finish)-tx(start),cr.h);c.restore();
+   const g=c.createLinearGradient(0,cr.y+7,0,cr.y+cr.h-7);for(const [stop,rgb]of palette)g.addColorStop(1-stop,`rgb(${rgb.join(',')})`);bar(c,end+16,cr.y+7,6,cr.h-14,g,3);c.font=font(11);c.textAlign='left';c.fillStyle='#97a4b7';const compact=cr.h<64;if(!compact)c.fillText(isHeat?'幅度':'dB',end+30,cr.y+5);c.fillText(im.hi.toFixed(isHeat?2:0),end+30,cr.y+(compact?8:22));c.fillText(im.lo.toFixed(isHeat?2:0),end+30,cr.y+cr.h-8);
   }
- }
- const x=tx(app.time);ctx.strokeStyle=C.red;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,top-13);ctx.lineTo(x,h-3);ctx.stroke();ctx.fillStyle=C.red;ctx.beginPath();ctx.arc(x,top-14,4,0,Math.PI*2);ctx.fill();
+  const data=app.data.series.optimized;bar(c,sr.x,sr.y,sr.w,sr.ty(app.threshold)-sr.y,'#f5f8fc',4);line(c,sr,app.data.decisionTime,data.links[app.link].score,C.single,2,true);line(c,sr,app.data.decisionTime,data.fused.score,C.fusion,2.4,true);for(const key of ['single','fused'])detection(c,frame(left,rows[key][0],plotW,rows[key][1],duration),app,key==='single'?data.links[app.link]:data.fused);
+ }else{document.querySelector('#csi-range').textContent=app.csiMode==='spectrum'?'— Hz':'—';placeholder(c,cr,'点击「计算仿真」查看 CSI');placeholder(c,sr,'点击「计算仿真」查看检测曲线');}
+ const ty=sr.ty(app.threshold);c.strokeStyle='#bcc6d4';c.lineWidth=1;c.setLineDash([4,5]);c.beginPath();c.moveTo(left,ty);c.lineTo(end,ty);c.stroke();c.setLineDash([]);c.fillStyle='white';c.beginPath();c.arc(end+2,ty,3,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#8d9aaf';c.font=font(13);c.textAlign='left';c.fillText(`阈值 ${app.threshold.toFixed(2)}`,end+11,ty);
+ const x=tx(app.time);c.strokeStyle=C.pink;c.lineWidth=1.5;c.beginPath();c.moveTo(x,keyY);c.lineTo(x,h);c.stroke();if(app.data)for(const [row,color]of [[app.data.series.optimized.links[app.link],C.single],[app.data.series.optimized.fused,C.fusion]]){const value=interpolated(app.data.decisionTime,row.score,app.time);if(Number.isFinite(value)){c.beginPath();c.arc(x,sr.ty(value),4,0,Math.PI*2);c.fillStyle='white';c.fill();c.strokeStyle=color;c.lineWidth=2;c.stroke();}}
+ c.fillStyle=C.pink;c.beginPath();c.arc(x,keyY,4,0,Math.PI*2);c.fill();const bx=clamp(x-30,0,w-60);bar(c,bx,1,60,Math.min(24,ruler-9),'#fff0f6',7);c.fillStyle=C.pink;c.font=font(13,600);c.textAlign='center';c.fillText(`${app.time.toFixed(1)} s`,bx+30,Math.min(13,ruler*.4));
 }
-export function drawComparison(canvas,app,row){
- const {ctx,w,h}=canvasContext(canvas),r=frame(ctx,w,h-20,total(app.project));if(!app.data)return;
- line(ctx,r,app.data.decisionTime,row.score,C.fusion,1.7);ctx.setLineDash([4,3]);ctx.strokeStyle='#888';ctx.beginPath();ctx.moveTo(r.x,r.ty(app.threshold));ctx.lineTo(r.x+r.w,r.ty(app.threshold));ctx.stroke();ctx.setLineDash([]);cursor(ctx,r,app.time,false);
- for(const it of intervals(app.data.decisionTime,row.state,total(app.project)))if(it.state===1)roundedBar(ctx,r.tx(it.start),h-12,r.tx(it.end)-r.tx(it.start),7,C.fusion);
-}
+export function drawComparison(canvas,app,row){const {c,w,h}=context(canvas),duration=total(app.project),r=frame(7,2,w-14,Math.max(12,h-17),duration);line(c,r,app.data.decisionTime,row.score,C.fusion,2,true);c.setLineDash([4,4]);c.strokeStyle='#bbc6d6';c.lineWidth=1;c.beginPath();c.moveTo(r.x,r.ty(app.threshold));c.lineTo(r.x+r.w,r.ty(app.threshold));c.stroke();c.setLineDash([]);for(const it of intervals(app.data.decisionTime,row.state,duration))if(it.state===1)bar(c,r.tx(it.start),h-9,r.tx(it.end)-r.tx(it.start),6,C.bar,3);c.strokeStyle=C.pink;c.lineWidth=1.5;c.beginPath();c.moveTo(r.tx(app.time),0);c.lineTo(r.tx(app.time),h);c.stroke();canvas.plotRect=r;}

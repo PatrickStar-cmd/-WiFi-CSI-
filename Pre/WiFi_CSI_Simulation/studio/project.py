@@ -3,7 +3,7 @@ from copy import deepcopy
 import math
 
 DEFAULT = {
-    'format': 'csi-studio-1', 'name': '场景 01 · 单人走动',
+    'format': 'csi-studio-1', 'name': '01单人走动',
     'room': [6.0, 5.0, 3.0], 'present': True, 'seed': 20261104,
     'radio': {'frequencyGHz': 2.462, 'bandwidthMHz': 20, 'rate': 100,
               'snr': 25, 'bodyDb': -15, 'loss': 0, 'phaseError': 0.02},
@@ -34,7 +34,7 @@ DEFAULT = {
 def preset(index=0):
     p=deepcopy(DEFAULT)
     if index==1:
-        p['name']='场景 02 · 挥手检测'
+        p['name']='02挥手检测'
         p['points']=[{'id':'P0','position':[3.0,2.5,0]}]
         p['actions']=[{'kind':'still','duration':4},
                       {'kind':'wave','duration':6,'amplitude':.20,'frequency':1.2,'heading':0},
@@ -42,7 +42,7 @@ def preset(index=0):
                       {'kind':'wave','duration':8,'amplitude':.35,'frequency':1.8,'heading':45},
                       {'kind':'still','duration':8}]
     elif index==2:
-        p['name']='场景 03 · 算法对比'
+        p['name']='03算法对比'
         p['radio']['snr']=20
     return p
 

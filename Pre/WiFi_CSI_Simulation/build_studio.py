@@ -42,9 +42,10 @@ def main():
     environment['PATH']=os.pathsep.join(map(str,[Path(sys.executable).parent,
         packages/'PySide6',packages/'shiboken6',system/'System32',system]))
     subprocess.run(cmd,cwd=ROOT,env=environment,check=True)
-    shutil.copy2(ROOT/'studio/README.md',target/'CSI Studio使用说明.v1.md')
+    shutil.copy2(ROOT/'studio/README.md',target/'CSI Studio使用说明.v6.md')
     licenses=target/'licenses';licenses.mkdir(exist_ok=True)
-    shutil.copy2(ROOT/'studio/web/vendor/THREE-LICENSE.txt',licenses/'THREE-LICENSE.txt')
+    for file in ('vendor/THREE-LICENSE.txt','vendor/LUCIDE-LICENSE.txt','SourceHanSans-OFL.txt'):
+        shutil.copy2(ROOT/'studio/web'/file,licenses/Path(file).name)
     packages={}
     for name in ('numpy','scipy','scikit-learn','joblib','threadpoolctl','Pillow','h5py',
                  'PySide6','PySide6-Essentials','PySide6-WebEngine','PySide6-Pdf','shiboken6',
@@ -57,6 +58,7 @@ def main():
                 destination.parent.mkdir(parents=True,exist_ok=True)
                 shutil.copy2(dist.locate_file(file),destination)
     (target/'runtime-versions.json').write_text(json.dumps(packages,indent=2),encoding='utf-8')
+    (target/'release.json').write_text(json.dumps({'app':'CSI Studio','version':'0.2.4'},indent=2),encoding='utf-8')
     print(target/'CSI Studio.exe')
 
 if __name__=='__main__':main()
