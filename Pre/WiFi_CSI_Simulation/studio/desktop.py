@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBo
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from . import __version__
 from .project import preset, validate
 from .engine import Run
 from .exporting import export_data, export_slides
@@ -26,6 +27,7 @@ class Worker(QThread):
         super().__init__();self.project=project
     def run(self):
         try:self.completed.emit(Run(self.project,self.progress.emit))
+        except ValueError as error:self.failed.emit(str(error))
         except Exception:
             self.failed.emit(traceback.format_exc())
 
@@ -40,7 +42,7 @@ class Bridge(QObject):
         super().__init__();self.window=window;self.worker=None;self.run_data=None
     @Slot(result=str)
     def initialize(self):
-        return json.dumps({'presets':[preset(i) for i in range(3)],'version':'0.2.4'},ensure_ascii=False)
+        return json.dumps({'presets':[preset(i) for i in range(3)],'version':__version__},ensure_ascii=False)
     @Slot(str)
     def compute(self,raw):
         if self.worker is not None and self.worker.isRunning():return

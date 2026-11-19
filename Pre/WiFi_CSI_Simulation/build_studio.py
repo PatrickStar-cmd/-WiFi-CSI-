@@ -11,6 +11,7 @@ from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtCore import Qt
 from PIL import Image
+from studio import __version__
 
 ROOT=Path(__file__).resolve().parent
 
@@ -21,8 +22,9 @@ def main():
     painter=QPainter(image);QSvgRenderer(str(ROOT/'studio/web/icon.svg')).render(painter);painter.end()
     png=work/'icon.png';ico=work/'icon.ico';image.save(str(png))
     with Image.open(png) as icon:icon.save(ico,format='ICO',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])
+    dist_dir=ROOT/'dist'/f'v{__version__}'
     cmd=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--windowed',
-         '--name','CSI Studio','--icon',str(ico),'--distpath',str(ROOT/'dist'),
+         '--name','CSI Studio','--icon',str(ico),'--distpath',str(dist_dir),
          '--workpath',str(work/'pyinstaller'),'--specpath',str(work),
          '--add-data',str(ROOT/'studio/web')+';studio/web',
          '--add-data',str(ROOT/'studio/assets/rate50')+';studio/assets/rate50',
@@ -32,7 +34,7 @@ def main():
          '--exclude-module','torch','--exclude-module','matplotlib',
          '--exclude-module','tkinter','--exclude-module','pytest',
          str(ROOT/'run_studio.py')]
-    target=ROOT/'dist'/'CSI Studio'
+    target=dist_dir/'CSI Studio'
     if not target.resolve().is_relative_to((ROOT/'dist').resolve()):
         raise ValueError('Build output must stay inside the project dist directory.')
     # Resolve Windows ICU/API DLLs from Windows, not unrelated tools on PATH.
@@ -42,7 +44,7 @@ def main():
     environment['PATH']=os.pathsep.join(map(str,[Path(sys.executable).parent,
         packages/'PySide6',packages/'shiboken6',system/'System32',system]))
     subprocess.run(cmd,cwd=ROOT,env=environment,check=True)
-    shutil.copy2(ROOT/'studio/README.md',target/'CSI Studio使用说明.v6.md')
+    shutil.copy2(ROOT/'studio/README.md',target/'CSI Studio使用说明.v7.md')
     licenses=target/'licenses';licenses.mkdir(exist_ok=True)
     for file in ('vendor/THREE-LICENSE.txt','vendor/LUCIDE-LICENSE.txt','SourceHanSans-OFL.txt'):
         shutil.copy2(ROOT/'studio/web'/file,licenses/Path(file).name)
@@ -58,7 +60,7 @@ def main():
                 destination.parent.mkdir(parents=True,exist_ok=True)
                 shutil.copy2(dist.locate_file(file),destination)
     (target/'runtime-versions.json').write_text(json.dumps(packages,indent=2),encoding='utf-8')
-    (target/'release.json').write_text(json.dumps({'app':'CSI Studio','version':'0.2.4'},indent=2),encoding='utf-8')
+    (target/'release.json').write_text(json.dumps({'app':'CSI Studio','version':__version__},indent=2),encoding='utf-8')
     print(target/'CSI Studio.exe')
 
 if __name__=='__main__':main()

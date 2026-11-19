@@ -28,6 +28,7 @@ DEFAULT = {
          'size':[.45,.45,.85],'reflection':.20},
         {'id':'chair2','kind':'chair','name':'木椅','position':[4.35,3.05,0],
          'size':[.45,.45,.85],'reflection':.20}],
+    'walls': [],
     'wallReflection': .5, 'selectedLink':'AC', 'threshold': .5,
 }
 
@@ -52,6 +53,83 @@ def links(project):
 
 def duration(project):
     return sum(a['duration'] for a in project['actions'])
+
+def within_room_xy(point, room):
+    return len(point)==2 and all(math.isfinite(x) and -1e-9<=x<=room[i]+1e-9 for i,x in enumerate(point))
+
+
+def validate_objects(project):
+    room=project['room']
+    walls=project.setdefault('walls',[])
+    objects=project['furniture']+walls
+    ids=[obj['id'] for obj in objects]
+    if any(not isinstance(key,str) or not key for key in ids) or len(set(ids))!=len(ids):
+        raise ValueError('场景对象应有互不重复的编号。')
+    for obj in objects:
+        if not isinstance(obj['name'],str) or not obj['name'].strip():
+            raise ValueError('请输入场景对象的名称。')
+        if not isinstance(obj.get('enabled',True),bool) or not isinstance(obj.get('material',''),str):
+            raise ValueError('场景对象的参与计算状态或材质无效。')
+        if not 0<=obj['reflection']<=1:
+            raise ValueError('反射系数应在 0–1 之间。')
+
+    for furniture in project['furniture']:
+        position=furniture['position']; size=furniture['size']; heading=furniture.get('heading',0)
+        if furniture['kind'] not in ('table','chair','box'):
+            raise ValueError('请选择桌子、椅子或通用障碍物。')
+        if len(size)!=3 or any(not math.isfinite(s) or s<=0 for s in size) or not math.isfinite(heading):
+            raise ValueError('家具尺寸或朝向无效。')
+        if len(position)!=3 or any(not math.isfinite(s) for s in position):
+            raise ValueError('家具坐标应为有效数值。')
+        x,y,z=position; length,width,height=size
+        angle=math.radians(heading % 360)
+        cos,sin=abs(math.cos(angle)),abs(math.sin(angle))
+        half_x=(length*cos+width*sin)/2; half_y=(length*sin+width*cos)/2
+        if not (within_room_xy((x-half_x,y-half_y),room) and
+                within_room_xy((x+half_x,y+half_y),room) and 0<=z and z+height<=room[2]+1e-9):
+            raise ValueError(f"{furniture['name']} 的完整外形应位于房间内。")
+        if furniture['kind']=='box' and not 0<=furniture['lossDb']<=60:
+            raise ValueError('障碍物穿透损耗应在 0–60 dB 之间。')
+
+    for wall in walls:
+        a,b=wall['start'],wall['end']
+        height,thickness,loss=wall['height'],wall['thickness'],wall['lossDb']
+        if not (within_room_xy(a,room) and within_room_xy(b,room)):
+            raise ValueError(f"{wall['name']} 的两端应位于房间内。")
+        length=math.dist(a,b)
+        if length<.1-1e-9 or not (0<height<=room[2] and .02<=thickness<=1 and 0<=loss<=60):
+            raise ValueError('隔墙长度至少 0.10 m，厚度 0.02–1 m，穿透损耗 0–60 dB，高度应在房间内。')
+        dx=-(b[1]-a[1])*thickness/(2*length); dy=(b[0]-a[0])*thickness/(2*length)
+        if any(not within_room_xy((x+s*dx,y+s*dy),room) for x,y in (a,b) for s in (-1,1)):
+            raise ValueError(f"{wall['name']} 的完整外形应位于房间内。")
+
+
+def validate_route(project):
+    from .obstacles import box_prism, wall_prism
+
+    blockers=[(w['name'],wall_prism(w)) for w in project['walls'] if w.get('enabled',True)]
+    blockers.extend((f['name'],box_prism(f)) for f in project['furniture']
+                    if f['kind']=='box' and f.get('enabled',True))
+    for name,prism in blockers:
+        for node in project['nodes']:
+            if prism.contains(node['position']):
+                raise ValueError(f"节点 {node['id']} 位于 {name} 内，请移出障碍物。")
+        bottom=prism.center[2]-prism.half_size[2]
+        top=min(1.8,prism.center[2]+prism.half_size[2])
+        if not project['present'] or bottom>=top:
+            continue
+        z=(bottom+top)/2
+        route={p['id']:(*p['position'][:2],z) for p in project['points']}
+        current=project['points'][0]['id']
+        if prism.contains(route[current]):
+            raise ValueError(f"起点 {current} 位于 {name} 内，请移动起点。")
+        for action in project['actions']:
+            if action['kind']=='walk':
+                target=action['target']
+                if prism.crosses(route[current],route[target]) or prism.contains(route[target]):
+                    raise ValueError(f'路线 {current} → {target} 与 {name} 相交，请调整路径点。')
+                current=target
+
 
 def validate(p):
     if p['format']!='csi-studio-1':
@@ -100,11 +178,5 @@ def validate(p):
         raise ValueError('随机种子应为 0–4294967295 之间的整数。')
     if not 0<=p['wallReflection']<=1 or not 0.02<=p['threshold']<=.98:
         raise ValueError('反射系数或检测阈值无效。')
-    for f in p['furniture']:
-        if not 0<=f['reflection']<=1 or any(s<=0 for s in f['size']):
-            raise ValueError('家具尺寸及反射系数无效。')
-        if any(not math.isfinite(v) or v<0 or v>p['room'][i] for i,v in enumerate(f['position'])):
-            raise ValueError('家具应位于房间内。')
-        if any(f['position'][i]-f['size'][i]/2<0 or f['position'][i]+f['size'][i]/2>p['room'][i] for i in (0,1)) or f['position'][2]+f['size'][2]>p['room'][2]:
-            raise ValueError('家具的完整尺寸应位于房间内。')
+    validate_objects(p)
     return p

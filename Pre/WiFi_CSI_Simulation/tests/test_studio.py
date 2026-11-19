@@ -6,7 +6,7 @@ import subprocess
 import zipfile
 import numpy as np
 import pytest
-from studio.project import preset, validate, links
+from studio.project import preset, validate, validate_route, links
 from studio.geometry import Channel3D, pose, segments, fresnel, C0
 from studio.engine import Run, extract, predict_observations
 from studio.exporting import export_data
@@ -65,6 +65,44 @@ def test_geometry_height_furniture_and_fresnel():
     assert not np.allclose(a.background['AC'],Channel3D(p3).background['AC'])
     f=fresnel(np.array([0.,0,0]),np.array([6.,0,0]),2.462e9)
     assert 2*np.hypot(3,f['minor'])==pytest.approx(6+C0/2.462e9/2)
+
+
+def test_partition_attenuates_direct_and_body_paths_at_fixed_noise():
+    scene=preset()
+    clear=Channel3D(scene)
+    wall={'id':'partition','name':'隔墙','start':[5,.2],'end':[5,4.8],
+          'height':2.5,'thickness':.15,'reflection':0,'lossDb':6}
+    scene['walls'].append(wall)
+    validate_route(validate(scene))
+    divided=Channel3D(scene)
+    assert divided.noise_power==clear.noise_power
+    amplitude=10**(-wall['lossDb']/20)
+    assert abs(divided.static['AC'][1][0]/clear.static['AC'][1][0])==pytest.approx(amplitude)
+    assert divided.direct_obstructions('AD')==[]
+    times=[12.2,12.4,12.6]
+    np.testing.assert_allclose(divided.response('AC',times)-divided.background['AC'],
+                               amplitude*(clear.response('AC',times)-clear.background['AC']))
+    wall['height']=.6
+    assert Channel3D(scene).direct_obstructions('AC')==[]
+    wall['enabled']=False
+    np.testing.assert_array_equal(Channel3D(scene).observe('AC')['csi'],clear.observe('AC')['csi'])
+
+
+def test_scene_objects_roundtrip_and_route_validation():
+    scene=preset()
+    scene.pop('walls')
+    assert validate(scene)['walls']==[]
+    original=Channel3D(scene).background['AC']
+    scene['furniture'][0]['heading']=37
+    roundtrip=validate(json.loads(json.dumps(scene)))
+    assert roundtrip==scene
+    assert not np.allclose(Channel3D(roundtrip).background['AC'],original)
+    scene['furniture']=[]
+    validate(scene)
+    scene['walls'].append({'id':'partition','name':'隔墙','start':[2,.2],'end':[2,4.8],
+                           'height':2,'thickness':.15,'reflection':.35,'lossDb':6})
+    with pytest.raises(ValueError,match='P0 → P1'):
+        validate_route(validate(scene))
 
 def test_observation_reproducibility_and_causal_features(run):
     channel=Channel3D(preset())

@@ -1,5 +1,6 @@
 """Three-dimensional paths and the single authoritative human pose sequence."""
 import numpy as np
+from .obstacles import box_prism, horizontal_axes, wall_prism
 from .project import links, duration
 
 C0=299_792_458.0
@@ -96,9 +97,12 @@ def pose(project,times):
             'truth':np.isin(kind,['walk','wave']).astype(np.int8)}
 
 def furniture_points(f):
-    x,y,z=f['position']; w,d,h=f['size']
-    return np.array([[x-w/2,y-d/2,z+h],[x+w/2,y-d/2,z+h],
-                     [x-w/2,y+d/2,z+h],[x+w/2,y+d/2,z+h]])
+    w,d,h=f['size']
+    corners=np.array([[-w/2,-d/2,h],[w/2,-d/2,h],[-w/2,d/2,h],[w/2,d/2,h]])
+    angle=np.deg2rad(f.get('heading',0)%360)
+    if angle:
+        corners=corners@horizontal_axes(angle).T
+    return corners+f['position']
 
 def fresnel(a,b,frequency_hz):
     length=float(np.linalg.norm(np.asarray(b)-a))
@@ -119,16 +123,50 @@ class Channel3D:
         room=np.asarray(project['room'])
         self.scatterers=rng.uniform([.4,.4,.2],room-[.4,.4,.3],(8,3))
         self.coefficients=rng.uniform(.02,.06,8)*np.exp(1j*rng.uniform(-np.pi,np.pi,8))
+        scatterer_owners=[None]*len(self.scatterers)
+        self.walls=[wall_prism(w) for w in project.get('walls',[]) if w.get('enabled',True)]
+        self.obstacles=list(self.walls)
         for f in project['furniture']:
+            if not f.get('enabled',True):
+                continue
+            if f['kind']=='box':
+                self.obstacles.append(box_prism(f))
             self.scatterers=np.r_[self.scatterers,furniture_points(f)]
             self.coefficients=np.r_[self.coefficients,np.full(4,-f['reflection']/4,dtype=complex)]
-        self.static={link:self._static(link) for link in self.links}
+            scatterer_owners.extend([f['id']]*4)
+        self.scatterer_owners=np.asarray(scatterer_owners,dtype=object)
+        # Reference receiver noise to the same layout before attenuation and added wall reflections.
+        reference={link:self._static(link,obstructed=False) for link in self.links}
+        self.noise_power={link:np.mean(abs(self._sum(*paths))**2)*10**(-project['radio']['snr']/10)
+                          for link,paths in reference.items()}
+        self.static={link:self._static(link,obstructed=True) for link in self.links} if self.obstacles else reference
         self.background={link:self._sum(*paths) for link,paths in self.static.items()}
         # Fixed physical coefficient across layouts: moving nodes never rescales the person.
         self.body_scale=.22*10**((project['radio']['bodyDb']+15)/20)
 
     def _sum(self,d,a):
         return np.sum(a[...,None]*np.exp(-2j*np.pi*d[...,None]*self.frequencies/C0),axis=-2)
+
+    def path_loss_db(self,start,end,ignore=None):
+        """Total obstacle transmission loss on one finite path segment."""
+        shape=np.broadcast_shapes(np.shape(start)[:-1],np.shape(end)[:-1])
+        loss=np.zeros(shape)
+        for obstacle in self.obstacles:
+            loss_db=obstacle.record.get('lossDb',0.)
+            if loss_db:
+                hit=obstacle.crosses(start,end)
+                if ignore is not None:
+                    hit=hit&(ignore!=obstacle.record['id'])
+                loss+=loss_db*hit
+        return loss
+
+    def direct_obstructions(self,link):
+        a,b=(self.nodes[x]['position'] for x in link)
+        return [{'id':o.record['id'],'name':o.record['name'],'kind':o.kind,'lossDb':o.record.get('lossDb',0.)}
+                for o in self.obstacles if o.crosses(a,b)]
+
+    def _transmission(self,start,end,ignore=None):
+        return 10**(-self.path_loss_db(start,end,ignore)/20)
 
     def gain(self,node,direction):
         n=node['antennas']
@@ -146,7 +184,7 @@ class Channel3D:
         gains=self.gain(tx,a)*self.gain(rx,b)
         return d1+d2,coefficients*gains/np.maximum(d1*d2,.05)
 
-    def _static(self,link):
+    def _static(self,link,obstructed):
         tx,rx=(self.nodes[x] for x in link)
         a,b=(np.asarray(x['position']) for x in (tx,rx))
         direct=np.linalg.norm(a-b)
@@ -161,14 +199,43 @@ class Channel3D:
         wamp=wamp*self.gain(tx,np.asarray(receiver_images)-a)*self.gain(rx,images-b)
         sd,sa=self.point_paths(link,self.scatterers,self.coefficients)
         da=self.gain(tx,(b-a)[None])[0]*self.gain(rx,(a-b)[None])[0]/direct
-        return np.r_[direct,wall,sd],np.r_[da,wamp,sa]
+        if not obstructed:
+            return np.r_[direct,wall,sd],np.r_[da,wamp,sa]
+
+        boundary_hits=[]
+        for i,image in enumerate(images):
+            axis=i//2
+            plane=(0,self.project['room'][axis])[i%2]
+            delta=b-image
+            fraction=(plane-image[axis])/delta[axis] if delta[axis] else .5
+            boundary_hits.append(image+fraction*delta)
+        hits=np.asarray(boundary_hits)
+        wamp*=self._transmission(a,hits)*self._transmission(hits,b)
+        da*=self._transmission(a,b)
+        sa*=self._transmission(a,self.scatterers,self.scatterer_owners)
+        sa*=self._transmission(self.scatterers,b,self.scatterer_owners)
+        inner_distances=[];inner_amplitudes=[]
+        for obstacle in self.walls:
+            point=obstacle.reflection_point(a,b)
+            if point is None or not obstacle.record['reflection']:
+                continue
+            length=np.linalg.norm(point-a)+np.linalg.norm(point-b)
+            reflection=-obstacle.record['reflection']*self.gain(tx,point-a)*self.gain(rx,point-b)/length
+            reflected_id=obstacle.record['id']
+            reflection*=self._transmission(a,point,reflected_id)*self._transmission(point,b,reflected_id)
+            inner_distances.append(length);inner_amplitudes.append(reflection)
+        return np.r_[direct,wall,sd,inner_distances],np.r_[da,wamp,sa,inner_amplitudes]
 
     def response(self,link,times):
         t=np.atleast_1d(times)
         result=np.repeat(self.background[link][None],len(t),axis=0)
         if self.project['present']:
-            d,a=self.point_paths(link,pose(self.project,t)['points'],np.array([1,.35,.35]))
-            result+=self._sum(d,self.body_scale*a)
+            points=pose(self.project,t)['points']
+            distance,amplitude=self.point_paths(link,points,np.array([1,.35,.35]))
+            if self.obstacles:
+                tx,rx=(self.nodes[x]['position'] for x in link)
+                amplitude*=self._transmission(tx,points)*self._transmission(points,rx)
+            result+=self._sum(distance,self.body_scale*amplitude)
         return result
 
     def observe(self,link):
@@ -180,8 +247,7 @@ class Channel3D:
         h=self.response(link,times)
         rng=np.random.default_rng([self.project['seed'],ord(link[0]),ord(link[1])])
         r=self.project['radio']
-        noise_power=np.mean(abs(self.background[link])**2)*10**(-r['snr']/10)
-        noise=np.sqrt(noise_power/2)*(rng.normal(size=h.shape)+1j*rng.normal(size=h.shape))
+        noise=np.sqrt(self.noise_power[link]/2)*(rng.normal(size=h.shape)+1j*rng.normal(size=h.shape))
         phase=rng.uniform(-np.pi,np.pi,len(times))
         slope=rng.normal(0,r['phaseError'],len(times))
         observed=np.exp(1j*(phase[:,None]+slope[:,None]*self.k))*h+noise

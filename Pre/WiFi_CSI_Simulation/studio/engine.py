@@ -11,7 +11,7 @@ from scipy.special import logsumexp
 from threadpoolctl import threadpool_limits
 from csi_sim.features import compute_features
 from csi_sim.optimized import multiscale_features, hysteresis_states
-from .project import validate, duration, links
+from .project import validate, validate_route, duration, links
 from .geometry import Channel3D, CALIBRATION, pose, segments
 
 ASSETS=Path(__file__).parent/'assets'
@@ -141,7 +141,8 @@ def classify(scores,settings,threshold):
 class Run:
     def __init__(self,project,progress=lambda p,s:None):
         start=time.perf_counter()
-        self.project=deepcopy(validate(project));self.names=links(project)
+        project=self.project=validate(deepcopy(project));self.names=links(project)
+        validate_route(project)
         progress(3,'静态校准')
         self.channel=Channel3D(project)
         self.observations={}
@@ -202,8 +203,10 @@ class Run:
         return plain({'project':self.project,'links':self.names,'duration':duration(self.project),
                       'seconds':self.seconds,'decisionTime':self.data['time'],'truth':self.truth,
                       'validCounts':self.data['valid'].sum(axis=1),'series':self.decisions(threshold),
+                      'obstructions':{l:self.channel.direct_obstructions(l) for l in self.names},
                       **self.visual,
-                      'metadata':{'physics':'3d-geometric-multipath-v1','calibrationSeconds':CALIBRATION,
+                      'metadata':{'physics':'3d-geometric-multipath-v2','calibrationSeconds':CALIBRATION,
+                                  'noiseReference':'unobstructed static geometry at the same scene layout',
                                   'featureCount':{'original':16,'optimized':40},
                                   'models':{k:v['modelHash'] for k,v in self.raw.items()},
                                   'weightsOrigin':'core_optimized_20261104_v1; frozen 2D-trained models',

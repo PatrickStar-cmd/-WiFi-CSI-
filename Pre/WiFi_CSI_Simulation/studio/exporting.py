@@ -25,7 +25,8 @@ def export_data(run,path,threshold,selected_link):
         project.update(threshold=threshold,selectedLink=selected_link)
         z.writestr('project.json',json.dumps(project,ensure_ascii=False,indent=2))
         z.writestr('decisions.csv','\ufeff'+output.getvalue())
-        z.writestr('metadata.json',json.dumps({**payload['metadata'],'threshold':threshold,
+        z.writestr('metadata.json',json.dumps({**payload['metadata'],'obstructions':payload['obstructions'],
+                      'noisePower':{link:float(power) for link,power in run.channel.noise_power.items()},'threshold':threshold,
                       'selectedLink':selected_link,'seconds':run.seconds},ensure_ascii=False,indent=2))
         z.writestr('metrics.json',json.dumps({a:{'links':{l:r['metrics'] for l,r in v['links'].items()},
                        'fusion':v['fused']['metrics']} for a,v in payload['series'].items()},ensure_ascii=False,indent=2))
