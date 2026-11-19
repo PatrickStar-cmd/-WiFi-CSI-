@@ -42,7 +42,7 @@ class Bridge(QObject):
         super().__init__();self.window=window;self.worker=None;self.run_data=None
     @Slot(result=str)
     def initialize(self):
-        return json.dumps({'presets':[preset(i) for i in range(3)],'version':__version__},ensure_ascii=False)
+        return json.dumps({'presets':[preset(i) for i in range(4)],'version':__version__},ensure_ascii=False)
     @Slot(str)
     def compute(self,raw):
         if self.worker is not None and self.worker.isRunning():return

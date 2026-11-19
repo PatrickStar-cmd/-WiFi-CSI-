@@ -45,6 +45,25 @@ def preset(index=0):
     elif index==2:
         p['name']='03算法对比'
         p['radio']['snr']=20
+    elif index==3:
+        p['name']='04双人动静对照'
+        p['people']=[
+            {'id':'P1','name':'人员 1','zone':[.45,.65,2.35,4.3],
+             'points':[{'id':'P0','position':[1.05,1.1,0]},
+                       {'id':'P1','position':[1.45,3.2,0]},
+                       {'id':'P2','position':[.9,2.2,0]}],
+             'actions':[{'kind':'still','duration':4},
+                        {'kind':'walk','duration':6,'target':'P1'},
+                        {'kind':'walk','duration':6,'target':'P2'},
+                        {'kind':'still','duration':14}]},
+            {'id':'P2','name':'人员 2','zone':[3.65,.65,5.55,4.3],
+             'points':[{'id':'P0','position':[4.95,1.1,0]},
+                       {'id':'P1','position':[4.85,2.5,0]}],
+             'actions':[{'kind':'still','duration':10},
+                        {'kind':'walk','duration':6,'target':'P1'},
+                        {'kind':'wave','duration':6,'amplitude':.36,'frequency':1.45,'heading':80},
+                        {'kind':'still','duration':8}]},
+        ]
     return p
 
 def links(project):
@@ -52,7 +71,19 @@ def links(project):
             for b in project['nodes'] if b['role']=='rx']
 
 def duration(project):
+    if 'people' in project:
+        return max(duration(person) for person in project['people'])
     return sum(a['duration'] for a in project['actions'])
+
+
+def person_project(project, person):
+    """Project one person's schedule to the shared playback duration."""
+    scene={key:value for key,value in project.items() if key!='people'}
+    scene.update(present=True,points=person['points'],actions=list(person['actions']))
+    remaining=duration(project)-duration(person)
+    if remaining>1e-9:
+        scene['actions'].append({'kind':'still','duration':remaining})
+    return scene
 
 def within_room_xy(point, room):
     return len(point)==2 and all(math.isfinite(x) and -1e-9<=x<=room[i]+1e-9 for i,x in enumerate(point))
@@ -110,6 +141,7 @@ def validate_route(project):
     blockers=[(w['name'],wall_prism(w)) for w in project['walls'] if w.get('enabled',True)]
     blockers.extend((f['name'],box_prism(f)) for f in project['furniture']
                     if f['kind']=='box' and f.get('enabled',True))
+    tracks=[(person['name']+'：',person) for person in project['people']] if 'people' in project else [('',project)]
     for name,prism in blockers:
         for node in project['nodes']:
             if prism.contains(node['position']):
@@ -119,16 +151,60 @@ def validate_route(project):
         if not project['present'] or bottom>=top:
             continue
         z=(bottom+top)/2
-        route={p['id']:(*p['position'][:2],z) for p in project['points']}
-        current=project['points'][0]['id']
-        if prism.contains(route[current]):
-            raise ValueError(f"起点 {current} 位于 {name} 内，请移动起点。")
-        for action in project['actions']:
-            if action['kind']=='walk':
-                target=action['target']
-                if prism.crosses(route[current],route[target]) or prism.contains(route[target]):
-                    raise ValueError(f'路线 {current} → {target} 与 {name} 相交，请调整路径点。')
-                current=target
+        for prefix,track in tracks:
+            route={p['id']:(*p['position'][:2],z) for p in track['points']}
+            current=track['points'][0]['id']
+            if prism.contains(route[current]):
+                raise ValueError(f"{prefix}起点 {current} 位于 {name} 内，请移动起点。")
+            for action in track['actions']:
+                if action['kind']=='walk':
+                    target=action['target']
+                    if prism.crosses(route[current],route[target]) or prism.contains(route[target]):
+                        raise ValueError(f'{prefix}路线 {current} → {target} 与 {name} 相交，请调整路径点。')
+                    current=target
+
+
+def validate_track(track, room):
+    if not track['points'] or len({x['id'] for x in track['points']})!=len(track['points']):
+        raise ValueError('请设置名称互不重复的路径点。')
+    for point in track['points']:
+        pos=point['position']
+        if len(pos)!=3 or pos[2]!=0 or any(not math.isfinite(x) or x<.2 or x>room[i]-.2 for i,x in enumerate(pos[:2])):
+            raise ValueError('路径点应位于室内地面，并与墙面间隔 0.2 m。')
+    if not track['actions'] or not .2<=duration(track)<=180:
+        raise ValueError('动作总时长应在 0.2–180 秒之间。')
+    point_ids={x['id'] for x in track['points']}
+    for a in track['actions']:
+        if a['kind'] not in ('still','walk','wave') or not math.isfinite(a['duration']) or a['duration']<.2:
+            raise ValueError('动作类型或持续时间无效。')
+        if a['kind']=='walk' and a['target'] not in point_ids:
+            raise ValueError('走动动作的目标路径点已被删除，请重新选择。')
+        if a['kind']=='wave' and not (0<=a['amplitude']<=.6 and .1<=a['frequency']<=5 and math.isfinite(a['heading'])):
+            raise ValueError('挥手摆幅应在 0–0.6 m，频率应在 0.1–5 Hz，朝向应为有效角度。')
+
+
+def validate_people(project):
+    people=project['people']
+    room=project['room']
+    if not isinstance(people,list) or [person['id'] for person in people]!=['P1','P2']:
+        raise ValueError('双人场景应依次包含人员 P1 和 P2。')
+    if project.get('present') is not True:
+        raise ValueError('双人场景需启用人员。')
+    for person in people:
+        name=person['name']
+        if not isinstance(name,str) or not name.strip():
+            raise ValueError('请输入人员名称。')
+        zone=person['zone']
+        if (len(zone)!=4 or not within_room_xy(zone[:2],room) or not within_room_xy(zone[2:],room)
+                or zone[0]>=zone[2] or zone[1]>=zone[3]):
+            raise ValueError(f'{name} 的活动区应为房间内有效的矩形。')
+        try:
+            validate_track(person,room)
+        except ValueError as exc:
+            raise ValueError(f'{name}：{exc}') from exc
+    a,b=(person['zone'] for person in people)
+    if all(max(a[i],b[i])<min(a[i+2],b[i+2]) for i in range(2)):
+        raise ValueError('两人的活动区应互不重叠。')
 
 
 def validate(p):
@@ -152,21 +228,10 @@ def validate(p):
         for b in p['nodes'][i+1:]:
             if math.dist(a['position'],b['position'])<.1:
                 raise ValueError('节点之间至少间隔 0.1 m。')
-    if not p['points'] or len({x['id'] for x in p['points']})!=len(p['points']):
-        raise ValueError('请设置名称互不重复的路径点。')
-    for point in p['points']:
-        if len(point['position'])!=3 or point['position'][2]!=0 or any(not math.isfinite(x) or x<.2 or x>p['room'][i]-.2 for i,x in enumerate(point['position'][:2])):
-            raise ValueError('路径点应位于室内地面，并与墙面间隔 0.2 m。')
-    if not p['actions'] or not .2<=duration(p)<=180:
-        raise ValueError('动作总时长应在 0.2–180 秒之间。')
-    point_ids={x['id'] for x in p['points']}
-    for a in p['actions']:
-        if a['kind'] not in ('still','walk','wave') or not math.isfinite(a['duration']) or a['duration']<.2:
-            raise ValueError('动作类型或持续时间无效。')
-        if a['kind']=='walk' and a['target'] not in point_ids:
-            raise ValueError('走动动作的目标路径点已被删除，请重新选择。')
-        if a['kind']=='wave' and not (0<=a['amplitude']<=.6 and .1<=a['frequency']<=5):
-            raise ValueError('挥手摆幅应在 0–0.6 m，频率应在 0.1–5 Hz。')
+    if 'people' in p:
+        validate_people(p)
+    else:
+        validate_track(p,p['room'])
     r=p['radio']
     if r['rate'] not in (50,100) or r['bandwidthMHz'] not in (20,40):
         raise ValueError('采样率请选择 50 / 100 Hz，带宽请选择 20 / 40 MHz。')

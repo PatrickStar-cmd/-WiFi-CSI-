@@ -8,6 +8,7 @@ import zipfile
 import numpy as np
 from .engine import plain
 from .geometry import segments
+from .project import person_project
 
 def export_data(run,path,threshold,selected_link):
     payload=run.payload(threshold)
@@ -30,11 +31,25 @@ def export_data(run,path,threshold,selected_link):
                       'selectedLink':selected_link,'seconds':run.seconds},ensure_ascii=False,indent=2))
         z.writestr('metrics.json',json.dumps({a:{'links':{l:r['metrics'] for l,r in v['links'].items()},
                        'fusion':v['fused']['metrics']} for a,v in payload['series'].items()},ensure_ascii=False,indent=2))
+        if run.people_results:
+            individual=StringIO(newline='')
+            writer=csv.writer(individual)
+            writer.writerow(['time_s','person','truth','state','motion_score'])
+            for person,row in payload['peopleResults'].items():
+                writer.writerows(zip(payload['decisionTime'],[person]*len(payload['truth']),
+                                     row['truth'],row['state'],row['score']))
+            z.writestr('people_decisions.csv','\ufeff'+individual.getvalue())
+            metrics={person:row['metrics'] for person,row in payload['peopleResults'].items()}
+            z.writestr('people_metrics.json',json.dumps({'people':metrics,'joint':payload['dualMetrics']},
+                                                        ensure_ascii=False,indent=2))
         buf=BytesIO()
         arrays={f'{l}_{k}':v for l,o in run.observations.items() for k,v in o.items()}
         arrays.update({'subcarriers':run.channel.k,'pose_time':run.visual['time'],
                        'body_points':run.visual['pose']['points'],'truth':run.truth,
                        'decision_time':run.data['time']})
+        for person,row in run.people_results.items():
+            arrays[f'{person}_body_points']=row['pose']['points']
+            arrays[f'{person}_truth']=row['truth']
         np.savez_compressed(buf,**arrays)
         z.writestr('observations.npz',buf.getvalue())
 
@@ -58,14 +73,18 @@ def export_slides(run,path,screenshot,threshold,selected_link):
         ratio=image.width/image.height
     width=min(12.5,6.15*ratio);height=width/ratio
     s.shapes.add_picture(str(screenshot),Inches((13.333-width)/2),Inches(.95+(6.15-height)/2),width=Inches(width),height=Inches(height))
-    s=slide('同一份 CSI · 原始与优化算法对比')
-    results=run.decisions(threshold)
-    metrics=[]
-    for algorithm,label in [('original','原始'),('optimized','优化')]:
-        for topology,title in [(selected_link,f'单链路 {selected_link}'),('fused','融合')]:
-            m=results[algorithm]['fused' if topology=='fused' else 'links']
-            if topology!='fused':m=m[topology]
-            metrics.append((f'{label} · {title}',m['metrics']))
+    if run.people_results:
+        s=slide('混合 CSI · 逐人动静检测')
+        metrics=[(p['name'],run.people_results[p['id']]['metrics']) for p in run.project['people']]
+    else:
+        s=slide('同一份 CSI · 原始与优化算法对比')
+        results=run.decisions(threshold)
+        metrics=[]
+        for algorithm,label in [('original','原始'),('optimized','优化')]:
+            for topology,title in [(selected_link,f'单链路 {selected_link}'),('fused','融合')]:
+                m=results[algorithm]['fused' if topology=='fused' else 'links']
+                if topology!='fused':m=m[topology]
+                metrics.append((f'{label} · {title}',m['metrics']))
     data=CategoryChartData();data.categories=['F1','精确率','召回率','误报率']
     for name,m in metrics:
         data.add_series(name,[m[k] for k in ['f1','precision','recall','fpr']])
@@ -87,7 +106,13 @@ def export_slides(run,path,screenshot,threshold,selected_link):
           ['信噪比',f"{run.project['radio']['snr']} dB"],['随机种子',str(run.project['seed'])],
           ['检测阈值',f'{threshold:.2f}']]
     action_names={'still':'停留','walk':'走动','wave':'挥手'}
-    if run.project['present']:
+    if run.people_results:
+        rows[1][1]='两人'
+        rows[-1]=['联合正确率',f"{run.dual_metrics['jointAccuracy']:.1%}"]
+        for person in run.project['people']:
+            rows.extend([[f"{person['name']} · {x['start']:.1f}–{x['end']:.1f} s",action_names[x['kind']]]
+                         for x in segments(person_project(run.project,person))])
+    elif run.project['present']:
         rows.extend([[f"{x['start']:.1f}–{x['end']:.1f} s",action_names[x['kind']]] for x in segments(run.project)])
     for start in range(0,len(rows),13):
         part=rows[start:start+13]

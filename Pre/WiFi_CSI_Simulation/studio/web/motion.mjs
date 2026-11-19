@@ -1,5 +1,20 @@
 export const names={still:'停留',walk:'走动',wave:'挥手',empty:'无人'};
-export const total=p=>p.actions.reduce((s,a)=>s+Number(a.duration),0);
+const actionLength=p=>p.actions.reduce((s,a)=>s+Number(a.duration),0);
+export const total=p=>p.people?Math.max(...p.people.map(actionLength)):actionLength(p);
+export const personColors=['#376caa','#805aa1'];
+export function subjects(project){
+ if(!project.people)return [project];
+ const end=total(project);
+ return project.people.map(person=>{
+  const extra=end-actionLength(person),actions=extra>1e-9?[...person.actions,{kind:'still',duration:extra,padded:true}]:person.actions;
+  return {...person,present:true,actions};
+ });
+}
+export function outOfZone(person){
+ if(!person.zone)return false;
+ const [x0,y0,x1,y1]=person.zone;
+ return actionSegments(person).some(s=>[s.p0,s.p1].some(([x,y])=>x<x0-1e-8||x>x1+1e-8||y<y0-1e-8||y>y1+1e-8));
+}
 export const activeLinks=p=>p.nodes.filter(n=>n.role==='tx').flatMap(a=>p.nodes.filter(n=>n.role==='rx').map(b=>a.id+b.id));
 export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function armJoints(shoulder,target,pole){

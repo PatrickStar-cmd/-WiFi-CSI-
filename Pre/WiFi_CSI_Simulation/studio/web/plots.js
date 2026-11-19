@@ -1,4 +1,4 @@
-import {total,actionSegments,pointTimes,names,clamp} from './motion.mjs';
+import {total,actionSegments,pointTimes,names,clamp,subjects,personColors} from './motion.mjs';
 const C={single:'#9baac2',fusion:'#415b81',bar:'#506789',pink:'#ff4081',walk:'#dbf1e7',still:'#edf0f4',wave:'#ffe8d8'};
 const font=(size=14,weight=450)=>`${weight} ${size}px "UI Sans"`;
 export const indexAt=(times,t)=>{let lo=0,hi=times.length;while(lo<hi){const m=(lo+hi)>>1;if(times[m]<=t+1e-8)lo=m+1;else hi=m;}return Math.max(0,lo-1);};
@@ -31,15 +31,44 @@ function errors(project,times,states){
  for(let i=0;i<bounds.length-1;i++){const a=bounds[i],b=bounds[i+1],mid=(a+b)/2,s=ss.find(x=>mid>=x.start&&mid<x.end),truth=project.present&&s?.kind!=='still',prediction=states[indexAt(times,mid)],kind=prediction<0?'unknown':truth&&prediction===0?'fn':!truth&&prediction===1?'fp':null;if(!kind)continue;if(result.length&&result.at(-1).kind===kind&&Math.abs(result.at(-1).end-a)<1e-6)result.at(-1).end=b;else result.push({start:a,end:b,kind});}return result;
 }
 function detection(c,r,app,row){const y=r.y+4,h=Math.max(8,r.h-8),duration=total(app.project);for(const it of intervals(app.data.decisionTime,row.state,duration))if(it.state===1)bar(c,r.tx(it.start),y,r.tx(it.end)-r.tx(it.start),h,C.bar);for(const e of errors(app.project,app.data.decisionTime,row.state)){const x=r.tx(e.start),w=r.tx(e.end)-x;bar(c,x,y,w,h,e.kind==='fn'?'#fce8ec':e.kind==='fp'?'#fbedd8':'#eef1f5');if(w>44&&e.kind!=='unknown'){bar(c,x+w/2-21,y,42,h,e.kind==='fn'?'#fff3f6':'#fff6e8');c.textAlign='center';c.font=font(11,500);c.fillStyle=e.kind==='fn'?'#cc7a8e':'#b28c52';c.fillText(e.kind==='fn'?'漏检':'误报',x+w/2,y+h/2);}}}
+function truthTrack(c,tx,row,person,duration){
+ const segments=person.present?actionSegments(person):[{start:0,end:duration,kind:'empty'}];
+ for(const s of segments){
+  const x=tx(s.start),width=tx(s.end)-x,y=row[0]+3,bh=row[1]-6;
+  bar(c,x+.5,y,width-2,bh,C[s.kind]||C.still);
+  if(width<23)continue;
+  c.save();c.beginPath();c.rect(x,y,width,bh);c.clip();let label=names[s.kind];
+  if(s.kind==='walk'&&width>105){const from=person.points.find(p=>Math.hypot(...p.position.map((v,i)=>v-s.p0[i]))<.01)?.id||'';label+=` ${from}→${s.target}`;}
+  c.font=font(person.id?11:13);c.fillStyle='#5a6b80';c.textAlign='center';c.fillText(label,x+width/2,y+bh/2);c.restore();
+ }
+}
+function personDetection(c,tx,row,record,times,duration,color){
+ const y=row[0]+3,h=row[1]-6,left=tx(0),right=tx(duration);
+ if(!record){bar(c,left,y,right-left,h,'#f2f4f7');c.fillStyle='#8292a6';c.font=font(11);c.textAlign='center';c.fillText('运行后生成',left+(right-left)/2,y+h/2);return;}
+ for(const it of intervals(times,record.state,duration)){
+  const x=tx(it.start),w=tx(it.end)-x,state=it.state;
+  bar(c,x+.4,y,w-.8,h,state===1?color:state===0?'#e9eef4':'#f7e9d0');
+  if(w>47){
+   c.font=font(11,500);c.textAlign='center';c.fillStyle=state===1?'#fff':state===0?'#526986':'#805f35';
+   c.fillText(state===1?'运动':state===0?'静止':'不确定',x+w/2,y+h/2);
+  }
+ }
+}
 export function drawStacked(canvas,app){
  const {c,w,h}=context(canvas),duration=total(app.project),body=getComputedStyle(document.body),rh=name=>parseFloat(body.getPropertyValue('--'+name+'-h'));
- const ruler=rh('ruler'),rows={};let y=ruler;for(const key of ['truth','csi','score','single','fused']){const height=rh(key==='single'||key==='fused'?'detect':key);rows[key]=[y,height];y+=height;}
+ const people=subjects(app.project),dual=!!app.project.people,selected=people.find(p=>p.id===app.selectedPerson)??people[0],ruler=rh('ruler'),rows={};
+ const rowKeys=dual?['truth0','det0','truth1','det1','csi','score']:['truth','csi','score','single','fused'];let y=ruler;
+ for(const key of rowKeys){const height=rh(key.match(/\d$/)?'dual-lane':key==='single'||key==='fused'?'detect':key);rows[key]=[y,height];y+=height;}
  const left=16,right=86,end=w-right,plotW=end-left,tx=t=>left+t/duration*plotW;canvas.axis={left,right,width:w,end,duration,tx,rows,ruler,plotW};c.fillStyle='white';c.fillRect(0,0,w,h);
+ canvas.axis.truthRows=people.map((person,i)=>({id:person.id,row:rows[dual?`truth${i}`:'truth']}));
  for(const t of ticks(duration)){const x=tx(t);c.strokeStyle='#eff2f6';c.lineWidth=1;c.beginPath();c.moveTo(x,ruler);c.lineTo(x,h);c.stroke();}
- const keys=Object.entries(pointTimes(app.project)).map(([id,t])=>({id,t,x:tx(t)}));canvas.axis.keys=keys;c.textAlign='center';c.font=font(13);c.fillStyle='#7e90a9';c.strokeStyle='#e0e6ee';const rulerLabelY=Math.min(19,ruler*.4),keyY=ruler-5;
+ const keys=Object.entries(pointTimes(selected)).map(([id,t])=>({id,t,x:tx(t)}));canvas.axis.keys=keys;c.textAlign='center';c.font=font(13);c.fillStyle='#7e90a9';c.strokeStyle='#e0e6ee';const rulerLabelY=Math.min(19,ruler*.4),keyY=ruler-5;
  for(let t=0;t<=duration;t++){c.beginPath();c.moveTo(tx(t),ruler-5);c.lineTo(tx(t),ruler);c.stroke();}for(const t of ticks(duration)){const x=tx(t);c.beginPath();c.moveTo(x,ruler-9);c.lineTo(x,ruler);c.stroke();if(!keys.some(k=>Math.abs(k.x-x)<48))c.fillText(t+' s',x,rulerLabelY);}
  let lastKey=-Infinity;for(const k of keys.sort((a,b)=>a.t-b.t)){c.fillStyle='#899bb5';c.beginPath();c.moveTo(k.x,keyY-3);c.lineTo(k.x+3,keyY);c.lineTo(k.x,keyY+3);c.lineTo(k.x-3,keyY);c.closePath();c.fill();if(k.x-lastKey>86&&Math.abs(k.x-tx(app.time))>68){c.font=font(12);c.fillText(`${k.id} · ${k.t.toFixed(1)} s`,k.x,rulerLabelY);lastKey=k.x;}}
- const segments=app.project.present?actionSegments(app.project):[{start:0,end:duration,kind:'empty'}];for(const s of segments){const x=tx(s.start),width=tx(s.end)-x,y=rows.truth[0]+4,bh=rows.truth[1]-8;bar(c,x+.5,y,width-2,bh,C[s.kind]||C.still);c.save();c.beginPath();c.rect(x,y,width,bh);c.clip();let label=names[s.kind];if(s.kind==='walk'&&width>105){const from=app.project.points.find(p=>Math.hypot(...p.position.map((v,i)=>v-s.p0[i]))<.01)?.id||'';label+=` ${from}→${s.target}`;}c.font=font(13);c.fillStyle='#6a7b8e';c.textAlign='center';c.fillText(label,x+width/2,y+bh/2);c.restore();}
+ for(const [i,person] of people.entries()){
+  truthTrack(c,tx,rows[dual?`truth${i}`:'truth'],person,duration);
+  if(dual)personDetection(c,tx,rows[`det${i}`],app.data?.peopleResults?.[person.id],app.data?.decisionTime,duration,personColors[i]);
+ }
  const cr=frame(left,rows.csi[0]+8,plotW,rows.csi[1]-16,duration),sr=frame(left,rows.score[0]+8,plotW,rows.score[1]-16,duration);canvas.axis.score=sr;
  if(app.data){
   const trace=app.data.traces[app.link],mode=app.csiMode;
@@ -47,10 +76,21 @@ export function drawStacked(canvas,app){
   }else{const isHeat=mode==='heatmap',matrix=isHeat?trace.heatmap:spectrumBand(trace).matrix,stamps=isHeat?trace.heatTime:trace.spectrumTime,im=heatImage(matrix),step=stamps.length>1?stamps[1]-stamps[0]:duration,start=isHeat?stamps[0]:stamps[0]-step/2,finish=stamps.at(-1)+(isHeat?step:step/2);document.querySelector('#csi-range').textContent=isHeat?'−28…−1 · 1…28':`0–${spectrumBand(trace).max.toFixed(1)} Hz`;c.save();c.beginPath();c.roundRect(cr.x,cr.y,cr.w,cr.h,6);c.clip();c.imageSmoothingEnabled=true;c.drawImage(im.image,tx(start),cr.y,tx(finish)-tx(start),cr.h);c.restore();
    const g=c.createLinearGradient(0,cr.y+7,0,cr.y+cr.h-7);for(const [stop,rgb]of palette)g.addColorStop(1-stop,`rgb(${rgb.join(',')})`);bar(c,end+16,cr.y+7,6,cr.h-14,g,3);c.font=font(11);c.textAlign='left';c.fillStyle='#97a4b7';const compact=cr.h<64;if(!compact)c.fillText(isHeat?'幅度':'dB',end+30,cr.y+5);c.fillText(im.hi.toFixed(isHeat?2:0),end+30,cr.y+(compact?8:22));c.fillText(im.lo.toFixed(isHeat?2:0),end+30,cr.y+cr.h-8);
   }
-  const data=app.data.series.optimized;bar(c,sr.x,sr.y,sr.w,sr.ty(app.threshold)-sr.y,'#f5f8fc',4);line(c,sr,app.data.decisionTime,data.links[app.link].score,C.single,2,true);line(c,sr,app.data.decisionTime,data.fused.score,C.fusion,2.4,true);for(const key of ['single','fused'])detection(c,frame(left,rows[key][0],plotW,rows[key][1],duration),app,key==='single'?data.links[app.link]:data.fused);
+  if(dual){
+   for(const [i,person] of people.entries()){
+    const record=app.data.peopleResults?.[person.id];if(record)line(c,sr,app.data.decisionTime,record.score,personColors[i],2);
+   }
+   c.font=font(11);c.textAlign='left';c.fillStyle='#8292a7';c.fillText('1.0',end+13,sr.y+4);c.fillText('0.0',end+13,sr.y+sr.h-4);
+  }else{
+   const data=app.data.series.optimized;bar(c,sr.x,sr.y,sr.w,sr.ty(app.threshold)-sr.y,'#f5f8fc',4);line(c,sr,app.data.decisionTime,data.links[app.link].score,C.single,2,true);line(c,sr,app.data.decisionTime,data.fused.score,C.fusion,2.4,true);for(const key of ['single','fused'])detection(c,frame(left,rows[key][0],plotW,rows[key][1],duration),app,key==='single'?data.links[app.link]:data.fused);
+  }
  }else{document.querySelector('#csi-range').textContent=app.csiMode==='spectrum'?'— Hz':'—';placeholder(c,cr,'点击「计算仿真」查看 CSI');placeholder(c,sr,'点击「计算仿真」查看检测曲线');}
- const ty=sr.ty(app.threshold);c.strokeStyle='#bcc6d4';c.lineWidth=1;c.setLineDash([4,5]);c.beginPath();c.moveTo(left,ty);c.lineTo(end,ty);c.stroke();c.setLineDash([]);c.fillStyle='white';c.beginPath();c.arc(end+2,ty,3,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#8d9aaf';c.font=font(13);c.textAlign='left';c.fillText(`阈值 ${app.threshold.toFixed(2)}`,end+11,ty);
- const x=tx(app.time);c.strokeStyle=C.pink;c.lineWidth=1.5;c.beginPath();c.moveTo(x,keyY);c.lineTo(x,h);c.stroke();if(app.data)for(const [row,color]of [[app.data.series.optimized.links[app.link],C.single],[app.data.series.optimized.fused,C.fusion]]){const value=interpolated(app.data.decisionTime,row.score,app.time);if(Number.isFinite(value)){c.beginPath();c.arc(x,sr.ty(value),4,0,Math.PI*2);c.fillStyle='white';c.fill();c.strokeStyle=color;c.lineWidth=2;c.stroke();}}
+ if(!dual){const ty=sr.ty(app.threshold);c.strokeStyle='#bcc6d4';c.lineWidth=1;c.setLineDash([4,5]);c.beginPath();c.moveTo(left,ty);c.lineTo(end,ty);c.stroke();c.setLineDash([]);c.fillStyle='white';c.beginPath();c.arc(end+2,ty,3,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#8d9aaf';c.font=font(13);c.textAlign='left';c.fillText(`阈值 ${app.threshold.toFixed(2)}`,end+11,ty);}
+ const x=tx(app.time);c.strokeStyle=C.pink;c.lineWidth=1.5;c.beginPath();c.moveTo(x,keyY);c.lineTo(x,h);c.stroke();
+ if(app.data){
+  const scores=dual?people.map((p,i)=>[app.data.peopleResults?.[p.id],personColors[i]]):[[app.data.series.optimized.links[app.link],C.single],[app.data.series.optimized.fused,C.fusion]];
+  for(const [row,color] of scores){if(!row)continue;const value=interpolated(app.data.decisionTime,row.score,app.time);if(Number.isFinite(value)){c.beginPath();c.arc(x,sr.ty(value),4,0,Math.PI*2);c.fillStyle='white';c.fill();c.strokeStyle=color;c.lineWidth=2;c.stroke();}}
+ }
  c.fillStyle=C.pink;c.beginPath();c.arc(x,keyY,4,0,Math.PI*2);c.fill();const bx=clamp(x-30,0,w-60);bar(c,bx,1,60,Math.min(24,ruler-9),'#fff0f6',7);c.fillStyle=C.pink;c.font=font(13,600);c.textAlign='center';c.fillText(`${app.time.toFixed(1)} s`,bx+30,Math.min(13,ruler*.4));
 }
 export function drawComparison(canvas,app,row){const {c,w,h}=context(canvas),duration=total(app.project),r=frame(7,2,w-14,Math.max(12,h-17),duration);line(c,r,app.data.decisionTime,row.score,C.fusion,2,true);c.setLineDash([4,4]);c.strokeStyle='#bbc6d6';c.lineWidth=1;c.beginPath();c.moveTo(r.x,r.ty(app.threshold));c.lineTo(r.x+r.w,r.ty(app.threshold));c.stroke();c.setLineDash([]);for(const it of intervals(app.data.decisionTime,row.state,duration))if(it.state===1)bar(c,r.tx(it.start),h-9,r.tx(it.end)-r.tx(it.start),6,C.bar,3);c.strokeStyle=C.pink;c.lineWidth=1.5;c.beginPath();c.moveTo(r.tx(app.time),0);c.lineTo(r.tx(app.time),h);c.stroke();canvas.plotRect=r;}

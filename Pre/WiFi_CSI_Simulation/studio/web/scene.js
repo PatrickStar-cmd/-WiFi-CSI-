@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from './vendor/OrbitControls.js';
 import {Reflector} from './vendor/Reflector.js';
-import {poseAt,actionSegments,pointTimes,activeLinks,names,clamp} from './motion.mjs';
+import {poseAt,actionSegments,pointTimes,activeLinks,names,clamp,subjects,personColors} from './motion.mjs';
 import {footprint,footprintExtent,objectFits,furnitureDefaults,wallDefaults,routeConflicts} from './obstacles.mjs';
 
 const v=a=>new THREE.Vector3(...a),Z=new THREE.Vector3(0,0,1),Y=new THREE.Vector3(0,1,0);
@@ -27,11 +27,12 @@ export class RoomView{
   this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=true;this.controls.dampingFactor=.1;this.controls.maxPolarAngle=Math.PI*.47;this.controls.minDistance=4;this.controls.maxDistance=30;
   this.scene.add(new THREE.HemisphereLight(0xffffff,0xd4dff0,2.1));
   const sun=new THREE.DirectionalLight(0xffffff,2.7);sun.position.set(1,-3,10);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-9;sun.shadow.camera.right=9;sun.shadow.camera.top=9;sun.shadow.camera.bottom=-9;sun.shadow.normalBias=.025;sun.shadow.bias=-.0001;sun.shadow.radius=6;this.scene.add(sun);
-  this.staticGroup=new THREE.Group();this.linkGroup=new THREE.Group();this.pathGroup=new THREE.Group();this.furnitureGroup=new THREE.Group();this.wallGroup=new THREE.Group();this.actor=new THREE.Group();
+  this.staticGroup=new THREE.Group();this.linkGroup=new THREE.Group();this.pathGroup=new THREE.Group();this.furnitureGroup=new THREE.Group();this.wallGroup=new THREE.Group();
+  this.actors=[this.makeActor(0x567e9f),this.makeActor(0x8b63a9)];this.actionsEditing=false;this.activePerson=null;
   this.placementGhost=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshBasicMaterial({color:0x456e9c,transparent:true,opacity:.32,depthTest:false,depthWrite:false}));this.placementGhost.visible=false;this.placementGhost.renderOrder=10;
-  this.scene.add(this.staticGroup,this.linkGroup,this.pathGroup,this.furnitureGroup,this.wallGroup,this.actor,this.placementGhost);
+  this.scene.add(this.staticGroup,this.linkGroup,this.pathGroup,this.furnitureGroup,this.wallGroup,...this.actors.map(a=>a.group),this.placementGhost);
   this.ray=new THREE.Raycaster();this.mouse=new THREE.Vector2();this.nodeGroups={};this.pointGroups={};this.objectGroups=new Map();
-  this.makeActor();this.setupEnvironment();this.bind();new ResizeObserver(()=>this.resize()).observe(container);
+  this.setupEnvironment();this.bind();new ResizeObserver(()=>this.resize()).observe(container);
  }
  setupEnvironment(){
   const env=document.createElement('canvas');env.width=512;env.height=256;const c=env.getContext('2d'),g=c.createLinearGradient(0,0,0,256);g.addColorStop(0,'#f8fbff');g.addColorStop(.45,'#e2e9f5');g.addColorStop(.7,'#bbc9df');g.addColorStop(1,'#dce3ef');c.fillStyle=g;c.fillRect(0,0,512,256);c.fillStyle='#fff';c.fillRect(45,20,70,75);c.fillStyle='#f4f9ff';c.fillRect(310,30,100,60);const texture=new THREE.CanvasTexture(env);texture.mapping=THREE.EquirectangularReflectionMapping;texture.colorSpace=THREE.SRGBColorSpace;this.scene.environment=texture;this.scene.environmentIntensity=.28;
@@ -41,7 +42,15 @@ export class RoomView{
   this.reflection=new Reflector(new THREE.PlaneGeometry(w,d),{color:0xe6ecf7,textureWidth:1024,textureHeight:512,clipBias:.001});this.reflection.position.set(w/2,d/2,.009);this.reflection.material.transparent=true;this.reflection.material.depthWrite=false;this.reflection.material.fragmentShader=this.reflection.material.fragmentShader.replace('blendOverlay( base.rgb, color ), 1.0','blendOverlay( base.rgb, color ), 0.12');this.scene.add(this.reflection);
  }
  setPrediction(prediction){
-  this.personLabel.el.innerHTML=`${names[this.currentKind]} · ${this.time.toFixed(1)} s`+(prediction?` <span class="tag-arrow">→</span> ${prediction.label} <b class="${prediction.agreement==='✓'?'good':'bad'}">${prediction.agreement}</b>`:'');
+  for(const [index,person] of this.subjects.entries()){
+   const actor=this.actors[index],label=actor.label.el,state=person.id?prediction?.[person.id]:prediction;
+   label.textContent=person.id?`${person.name} · ${names[actor.kind]}`:`${names[actor.kind]} · ${this.time.toFixed(1)} s`;
+   if(state){
+    const arrow=document.createElement('span');arrow.className='tag-arrow';arrow.textContent='→';
+    const agreement=document.createElement('b');agreement.className=state.agreement==='✓'?'good':'bad';agreement.textContent=state.agreement;
+    label.append(' ',arrow,' '+state.label,' ',agreement);
+   }
+  }
  }
  layoutLabels(){
   const root=this.container.getBoundingClientRect(),w=root.width,h=root.height,svg=document.getElementById('leaders');let markup='';
@@ -71,32 +80,33 @@ export class RoomView{
   this.rayFromEvent(e);
   if(this.placement){this.updateGhost(this.groundPoint());return;}
   const entity=this.pick(),object=entity&&['furniture','wall'].includes(entity.userData.type);
-  for(const l of this.labels)l.el.classList.toggle('hovered',!!entity&&(l.node===entity.userData.id||l.point===entity.userData.id));
+  for(const l of this.labels)l.el.classList.toggle('hovered',!!entity&&(l.node===entity.userData.id||(l.point===entity.userData.id&&l.person===entity.userData.person)));
   this.renderer.domElement.style.cursor=this.addPoint?'crosshair':entity&&(!object||this.canMoveObject())?'grab':entity?'pointer':'default';
  }
- makeActor(){
-  const shirt=0x67849f,pants=0x94a4b9,skin=0xcbb5a7;
-  this.torso=new THREE.Mesh(new THREE.CapsuleGeometry(.18,.30,6,18),material(shirt));this.torso.rotation.x=Math.PI/2;this.torso.scale.set(.85,1,1.25);this.actor.add(this.torso);
-  this.head=sphere(.13,[0,0,1.62],skin);this.actor.add(this.head);
-  this.neck=cylinder([0,0,1.45],[0,0,1.59],.065,skin);this.actor.add(this.neck);
-  this.hair=new THREE.Mesh(new THREE.SphereGeometry(.133,16,10,0,Math.PI*2,0,Math.PI*.55),material(0x393832));this.hair.rotation.x=Math.PI/2;this.actor.add(this.hair);
-  this.nose=sphere(.028,[0,0,0],skin);this.actor.add(this.nose);
-  this.limbs=[];
+ makeActor(shirt){
+  const pants=0x94a4b9,skin=0xcbb5a7,actor={group:new THREE.Group()};actor.group.visible=false;
+  actor.torso=new THREE.Mesh(new THREE.CapsuleGeometry(.18,.30,6,18),material(shirt));actor.torso.rotation.x=Math.PI/2;actor.torso.scale.set(.85,1,1.25);actor.group.add(actor.torso);
+  actor.head=sphere(.13,[0,0,1.62],skin);actor.group.add(actor.head);
+  actor.neck=cylinder([0,0,1.45],[0,0,1.59],.065,skin);actor.group.add(actor.neck);
+  actor.hair=new THREE.Mesh(new THREE.SphereGeometry(.133,16,10,0,Math.PI*2,0,Math.PI*.55),material(0x393832));actor.hair.rotation.x=Math.PI/2;actor.group.add(actor.hair);
+  actor.nose=sphere(.028,[0,0,0],skin);actor.group.add(actor.nose);
+  actor.limbs=[];
   for(let i=0;i<8;i++){
-   const m=new THREE.Mesh(new THREE.CylinderGeometry(i<4?.045:.063,i<4?.047:.063,1,18),material(i<2?shirt:i<4?skin:pants));m.castShadow=true;this.actor.add(m);this.limbs.push(m);
+   const m=new THREE.Mesh(new THREE.CylinderGeometry(i<4?.045:.063,i<4?.047:.063,1,18),material(i<2?shirt:i<4?skin:pants));m.castShadow=true;actor.group.add(m);actor.limbs.push(m);
   }
-  this.hands=[sphere(.055,[0,0,0],skin),sphere(.055,[0,0,0],skin)];this.actor.add(...this.hands);
-  this.shoulderJoints=[sphere(.065,[0,0,0],shirt),sphere(.065,[0,0,0],shirt)];
-  this.elbowJoints=[sphere(.047,[0,0,0],skin),sphere(.047,[0,0,0],skin)];this.actor.add(...this.shoulderJoints,...this.elbowJoints);
-  this.feet=[box([.23,.10,.09],[0,0,0],0xe0ddd4),box([.23,.10,.09],[0,0,0],0xe0ddd4)];this.actor.add(...this.feet);
-  this.knees=[sphere(.065,[0,0,0],pants),sphere(.065,[0,0,0],pants)];this.actor.add(...this.knees);
+  actor.hands=[sphere(.055,[0,0,0],skin),sphere(.055,[0,0,0],skin)];actor.group.add(...actor.hands);
+  actor.shoulderJoints=[sphere(.065,[0,0,0],shirt),sphere(.065,[0,0,0],shirt)];
+  actor.elbowJoints=[sphere(.047,[0,0,0],skin),sphere(.047,[0,0,0],skin)];actor.group.add(...actor.shoulderJoints,...actor.elbowJoints);
+  actor.feet=[box([.23,.10,.09],[0,0,0],0xe0ddd4),box([.23,.10,.09],[0,0,0],0xe0ddd4)];actor.group.add(...actor.feet);
+  actor.knees=[sphere(.065,[0,0,0],pants),sphere(.065,[0,0,0],pants)];actor.group.add(...actor.knees);
+  return actor;
  }
  label(text,position,cls='',layer=null){
   const el=document.createElement('div');el.className='world-label '+cls;el.textContent=text;this.labelsRoot.appendChild(el);
   const entry={el,position:v(position),layer};this.labels.push(entry);return entry;
  }
  setProject(p){
-  this.project=p;if(this.reflection){this.scene.remove(this.reflection);this.reflection.dispose();this.reflection.geometry.dispose();this.reflection=null;}dispose(this.staticGroup);dispose(this.linkGroup);dispose(this.pathGroup);dispose(this.furnitureGroup);dispose(this.wallGroup);
+  this.project=p;this.subjects=subjects(p);if(this.reflection){this.scene.remove(this.reflection);this.reflection.dispose();this.reflection.geometry.dispose();this.reflection=null;}dispose(this.staticGroup);dispose(this.linkGroup);dispose(this.pathGroup);dispose(this.furnitureGroup);dispose(this.wallGroup);
   this.labels.forEach(x=>x.el.remove());this.labels=[];this.nodeGroups={};this.pointGroups={};this.objectGroups.clear();this.pathLines=[];
   const [w,d,h]=p.room;
   this.staticGroup.add(box([w,d,.12],[w/2,d/2,-.06],0xe8edf5));
@@ -115,23 +125,59 @@ export class RoomView{
    if(n.antennas>1){for(let i=0;i<n.antennas;i++)g.add(cylinder([-.1+i*.2/(n.antennas-1),0,n.position[2]-.05],[-.1+i*.2/(n.antennas-1),0,n.position[2]+.11],.012,n.role==='tx'?0x28549b:0x31968d));}
   }
   for(const object of [...p.furniture,...(p.walls??[])])this.buildObject(object);
-  const arrivals=pointTimes(p);
-  for(const point of p.points){
-   const g=new THREE.Group();g.position.copy(v(point.position));g.userData={type:'point',id:point.id};
-   const disk=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.025,20),material(0xfaf9f5));disk.rotation.x=Math.PI/2;disk.position.z=.027;g.add(disk);
-   const ring=new THREE.Mesh(new THREE.TorusGeometry(.076,.015,6,20),material(0x8e9fbc));ring.position.z=.04;g.add(ring);
-   this.pathGroup.add(g);this.pointGroups[point.id]=g;
-   const l=this.label(`${point.id} · ${arrivals[point.id]===undefined?'—':arrivals[point.id].toFixed(1)+' s'}`,point.position,'','path');l.offset=point.id==='P1'?[64,28]:[0,20];l.point=point.id;l.el.classList.add(point.id==='P1'?'current-point':'hover-only');
-  }
-  const conflicts=new Set(routeConflicts(p).map(({segment})=>segment.start));
-  for(const s of actionSegments(p).filter(x=>x.kind==='walk')){
-   const makeLine=dashed=>{const geometry=new THREE.BufferGeometry().setFromPoints([v(s.p0),v(s.p1)]);const color=conflicts.has(s.start)?0xc17158:dashed?0xc3cfdf:0x8296b3;const mat=dashed?new THREE.LineDashedMaterial({color,dashSize:.12,gapSize:.09}):new THREE.LineBasicMaterial({color});const line=new THREE.Line(geometry,mat);line.computeLineDistances();this.pathGroup.add(line);return line;};
-   this.pathLines.push({s,done:makeLine(false),future:makeLine(true)});
-  }
+  this.zones=new THREE.Group();this.pathGroup.add(this.zones);
+  for(const [i,person] of this.subjects.entries())this.buildPersonPath(person,i);
+  this.updatePersonLayers();
   const origin=[.15,.15,.01];for(const [dir,color] of [[[1,0,0],0x956c5c],[[0,1,0],0x7d8f64],[[0,0,1],0x6c83a0]])this.staticGroup.add(new THREE.ArrowHelper(v(dir),v(origin),.35,color,.075,.04));
   this.label('X',[.56,.15,.01],'axis-label');this.label('Y',[.15,.56,.01],'axis-label');this.label('Z',[.15,.15,.45],'axis-label');
-  this.personLabel=this.label('',[0,0,2],'person');this.personLabel.offset=[86,-16];this.buildLinks();this.setTime(this.time);this.applyLayers();this.updateObjectPlans();
+  for(const [i,actor] of this.actors.entries()){
+   const person=this.subjects[i];actor.group.visible=!!person?.present;actor.label=null;
+   if(!person)continue;
+   actor.label=this.label('',[0,0,2],person.id?'person person-dual':'person');actor.label.offset=person.id?[i===0?-55:61,-20]:[86,-16];
+   actor.label.el.style.setProperty('--person-color',personColors[i]);
+  }
+  this.buildLinks();this.setTime(this.time);this.applyLayers();this.updateObjectPlans();
   if(!this.initialized){this.resetCamera();this.initialized=true;}else this.fitCamera();
+ }
+ buildPersonPath(person,index){
+  const arrivals=pointTimes(person),accent=person.id?personColors[index]:0x8e9fbc;
+  for(const point of person.points){
+   const g=new THREE.Group();g.position.copy(v(point.position));g.userData={type:'point',id:point.id,person:person.id};
+   const disk=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.025,20),material(0xfaf9f5));disk.rotation.x=Math.PI/2;disk.position.z=.027;g.add(disk);
+   const ring=new THREE.Mesh(new THREE.TorusGeometry(.076,.015,6,20),material(accent));ring.position.z=.04;g.add(ring);
+   this.pathGroup.add(g);this.pointGroups[person.id?`${person.id}:${point.id}`:point.id]=g;
+   const title=person.id?`${person.name} · ${point.id}`:`${point.id} · ${arrivals[point.id]===undefined?'—':arrivals[point.id].toFixed(1)+' s'}`;
+   const label=this.label(title,point.position,'','path');label.offset=point.id==='P1'?[64,28]:[0,20];label.point=point.id;label.person=person.id;
+   label.el.classList.add(point.id==='P1'?'current-point':'hover-only');
+  }
+  const conflicts=new Set(routeConflicts({...this.project,...person,people:undefined}).map(({segment})=>segment.start));
+  for(const s of actionSegments(person).filter(x=>x.kind==='walk')){
+   const makeLine=dashed=>{
+    const geometry=new THREE.BufferGeometry().setFromPoints([v(s.p0),v(s.p1)]);
+    const color=conflicts.has(s.start)?0xc17158:person.id?accent:dashed?0xc3cfdf:0x8296b3;
+    const opts={color,transparent:!!person.id,opacity:dashed&&person.id?.57:1};
+    const mat=dashed?new THREE.LineDashedMaterial({...opts,dashSize:.12,gapSize:.09}):new THREE.LineBasicMaterial(opts);
+    const line=new THREE.Line(geometry,mat);line.computeLineDistances();this.pathGroup.add(line);return line;
+   };
+   this.pathLines.push({s,person:person.id,done:makeLine(false),future:makeLine(true)});
+  }
+  if(!person.zone)return;
+  const [x0,y0,x1,y1]=person.zone,center=[(x0+x1)/2,(y0+y1)/2,.014];
+  const area=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0,y1-y0),new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.12,depthWrite:false,toneMapped:false}));
+  area.position.copy(v(center));area.raycast=()=>{};
+  const borderPoints=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]].map(([x,y])=>new THREE.Vector3(x,y,.026));
+  const border=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(borderPoints),new THREE.LineBasicMaterial({color:accent,transparent:true,opacity:.62,toneMapped:false}));
+  border.raycast=()=>{};area.userData.person=person.id;border.userData.person=person.id;this.zones.add(area,border);
+ }
+ setActivePerson(id){this.activePerson=id;this.updatePersonLayers();}
+ setActionsEditing(active){
+  if(this.actionsEditing===active)return;
+  this.actionsEditing=active;this.updatePersonLayers();this.fitCamera();
+ }
+ updatePersonLayers(){
+  if(!this.zones)return;
+  this.zones.visible=this.actionsEditing;
+  for(const e of this.zones.children)e.material.opacity=e.isMesh?(e.userData.person===this.activePerson?.17:.08):(e.userData.person===this.activePerson?.80:.45);
  }
  buildObject(object){
   const {center,size,angle}=footprint(object),[width,depth,height]=size,wall=!!object.start;
@@ -209,29 +255,49 @@ export class RoomView{
   const [w,d]=this.project.room,W=this.container.clientWidth,H=this.container.clientHeight;
   if(!W||!H)return;
   this.camera.updateMatrixWorld();
-  const pts=[[0,0,0],[w,0,0],[0,d,0],[w,d,0],[0,d,1.05],[w,d,1.05],[0,0,1.05],...this.project.nodes.map(n=>n.position),...this.project.points.map(p=>[p.position[0],p.position[1],1.96])];
+  const pts=[[0,0,0],[w,0,0],[0,d,0],[w,d,0],[0,d,1.05],[w,d,1.05],[0,0,1.05],...this.project.nodes.map(n=>n.position),...this.subjects.flatMap(person=>person.points.map(p=>[p.position[0],p.position[1],1.96]))];
   for(const wall of this.project.walls??[])pts.push([...wall.start,wall.height],[...wall.end,wall.height]);
   const q=pts.map(a=>v(a).applyMatrix4(this.camera.matrixWorldInverse));
   const xmin=Math.min(...q.map(p=>p.x)),xmax=Math.max(...q.map(p=>p.x)),ymin=Math.min(...q.map(p=>p.y)),ymax=Math.max(...q.map(p=>p.y));
-  const inset=this.top&&document.body.classList.contains('scene-editing')?Math.min(W*.38,286):0;
+  const inset=this.top&&(this.actionsEditing||document.body.classList.contains('scene-editing'))?Math.min(W*.38,286):0;
   const aspect=W/H,half=Math.max((ymax-ymin)/.79,(xmax-xmin)/((W-inset)/H)/.91)/2,cx=(xmin+xmax)/2-inset*half/H,cy=(ymin+ymax)/2+half*.035;
   this.camera.left=cx-half*aspect;this.camera.right=cx+half*aspect;this.camera.top=cy+half;this.camera.bottom=cy-half;this.camera.updateProjectionMatrix();
  }
  resize(){const w=this.container.clientWidth,h=this.container.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.fitCamera();}
  setTime(time,provided=null){
   this.time=time;if(!this.project)return;
-  const p=provided||poseAt(this.project,time),root=v(p.root),angle=p.angle,forward=new THREE.Vector3(Math.cos(angle),Math.sin(angle),0),side=new THREE.Vector3(-Math.sin(angle),Math.cos(angle),0);
-  this.actor.visible=this.project.present;this.personLabel.position.copy(root).add(new THREE.Vector3(0,0,1.96));this.personLabel.el.textContent=`${names[p.kind]} · ${time.toFixed(1)} s`;this.currentKind=p.kind;this.personLabel.el.style.visibility=this.project.present?'visible':'hidden';
-  const current=this.project.points.reduce((a,b)=>v(a.position).distanceTo(root)<=v(b.position).distanceTo(root)?a:b);for(const l of this.labels.filter(l=>l.point)){l.el.classList.toggle('current-point',l.point===current.id);l.el.classList.toggle('hover-only',l.point!==current.id);l.offset=l.point===current.id?[64,28]:[0,20];}
-  this.torso.position.copy(root).add(new THREE.Vector3(0,0,1.17));this.torso.quaternion.setFromAxisAngle(Z,angle).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI/2));
-  this.neck.position.copy(root).add(new THREE.Vector3(0,0,1.52));
-  this.head.position.copy(root).add(new THREE.Vector3(0,0,1.64));this.hair.position.copy(this.head.position);this.hair.quaternion.copy(this.torso.quaternion);this.nose.position.copy(this.head.position).addScaledVector(forward,.125).add(new THREE.Vector3(0,0,-.035));
+  const roots=new Map();
+  for(const [i,person] of this.subjects.entries()){
+   const actor=this.actors[i],pose=(person.id?provided?.[person.id]:provided)??poseAt(person,time);
+   roots.set(person.id,pose.root);actor.group.visible=person.present;actor.kind=pose.kind;
+   const root=v(pose.root),label=actor.label;label.position.copy(root).add(new THREE.Vector3(0,0,1.96));
+   label.el.style.visibility=person.present?'visible':'hidden';
+   const current=person.points.reduce((a,b)=>v(a.position).distanceTo(root)<=v(b.position).distanceTo(root)?a:b);
+   for(const l of this.labels.filter(l=>l.point&&l.person===person.id)){
+    l.el.classList.toggle('current-point',l.point===current.id);l.el.classList.toggle('hover-only',l.point!==current.id);
+    l.offset=l.point===current.id?[person.id?(i===0?-55:55):64,28]:[0,20];
+   }
+   this.placeActor(actor,pose,time);
+  }
+  for(const item of this.pathLines){
+   const {s,done,future,person}=item;
+   const middle=time<=s.start?s.p0:time>=s.end?s.p1:roots.get(person);
+   for(const [line,a,b,visible] of [[done,s.p0,middle,time>s.start],[future,middle,s.p1,time<s.end]]){
+    line.visible=visible;const ar=line.geometry.attributes.position;ar.setXYZ(0,a[0],a[1],.035);ar.setXYZ(1,b[0],b[1],.035);
+    ar.needsUpdate=true;line.geometry.computeBoundingSphere();line.computeLineDistances();
+   }
+  }
+ }
+ placeActor(actor,p,time){
+  const root=v(p.root),angle=p.angle,forward=new THREE.Vector3(Math.cos(angle),Math.sin(angle),0),side=new THREE.Vector3(-Math.sin(angle),Math.cos(angle),0);
+  actor.torso.position.copy(root).add(new THREE.Vector3(0,0,1.17));actor.torso.quaternion.setFromAxisAngle(Z,angle).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI/2));
+  actor.neck.position.copy(root).add(new THREE.Vector3(0,0,1.52));
+  actor.head.position.copy(root).add(new THREE.Vector3(0,0,1.64));actor.hair.position.copy(actor.head.position);actor.hair.quaternion.copy(actor.torso.quaternion);actor.nose.position.copy(actor.head.position).addScaledVector(forward,.125).add(new THREE.Vector3(0,0,-.035));
   const shoulder=p.shoulders.map(v),hands=[v(p.points[1]),v(p.points[2])],elbows=p.elbows.map(v);
-  const setLimb=(i,a,b)=>{const delta=b.clone().sub(a);this.limbs[i].position.copy(a).add(b).multiplyScalar(.5);this.limbs[i].scale.y=delta.length();this.limbs[i].quaternion.setFromUnitVectors(Y,delta.normalize());};
-  for(let i=0;i<2;i++){setLimb(i,shoulder[i],elbows[i]);setLimb(i+2,elbows[i],hands[i]);this.hands[i].position.copy(hands[i]);this.shoulderJoints[i].position.copy(shoulder[i]);this.elbowJoints[i].position.copy(elbows[i]);}
+  const setLimb=(i,a,b)=>{const delta=b.clone().sub(a);actor.limbs[i].position.copy(a).add(b).multiplyScalar(.5);actor.limbs[i].scale.y=delta.length();actor.limbs[i].quaternion.setFromUnitVectors(Y,delta.normalize());};
+  for(let i=0;i<2;i++){setLimb(i,shoulder[i],elbows[i]);setLimb(i+2,elbows[i],hands[i]);actor.hands[i].position.copy(hands[i]);actor.shoulderJoints[i].position.copy(shoulder[i]);actor.elbowJoints[i].position.copy(elbows[i]);}
   const gait=p.kind==='walk'?.12*Math.sin(2*Math.PI*1.5*(p.elapsed??time)):0;
-  for(let i=0;i<2;i++){const sign=i===0?1:-1,hip=root.clone().addScaledVector(side,.105*sign).add(new THREE.Vector3(0,0,.85)),foot=root.clone().addScaledVector(side,.11*sign).addScaledVector(forward,gait*sign).add(new THREE.Vector3(0,0,.075));const knee=hip.clone().lerp(foot,.52).addScaledVector(forward,.045);setLimb(4+i,hip,knee);setLimb(6+i,knee,foot);this.knees[i].position.copy(knee);this.feet[i].position.copy(foot);this.feet[i].rotation.z=angle;}
-  for(const item of this.pathLines){const {s,done,future}=item;let middle=time<=s.start?s.p0:time>=s.end?s.p1:poseAt(this.project,time).root;for(const [line,a,b,visible] of [[done,s.p0,middle,time>s.start],[future,middle,s.p1,time<s.end]]){line.visible=visible;const ar=line.geometry.attributes.position;ar.setXYZ(0,a[0],a[1],.035);ar.setXYZ(1,b[0],b[1],.035);ar.needsUpdate=true;line.geometry.computeBoundingSphere();line.computeLineDistances();}}
+  for(let i=0;i<2;i++){const sign=i===0?1:-1,hip=root.clone().addScaledVector(side,.105*sign).add(new THREE.Vector3(0,0,.85)),foot=root.clone().addScaledVector(side,.11*sign).addScaledVector(forward,gait*sign).add(new THREE.Vector3(0,0,.075));const knee=hip.clone().lerp(foot,.52).addScaledVector(forward,.045);setLimb(4+i,hip,knee);setLimb(6+i,knee,foot);actor.knees[i].position.copy(knee);actor.feet[i].position.copy(foot);actor.feet[i].rotation.z=angle;}
  }
  render(){
   this.controls.update();
@@ -295,17 +361,17 @@ export class RoomView{
     this.callbacks[this.placement?'placeObject':'addPoint']([point.x,point.y,0]);return;
    }
    const entity=this.pick();if(!entity)return;
-   e.stopImmediatePropagation();const {type,id}=entity.userData,isObject=type==='furniture'||type==='wall';
+   e.stopImmediatePropagation();const {type,id,person}=entity.userData,isObject=type==='furniture'||type==='wall';
    const movable=!isObject||this.canMoveObject();
-   if(!movable){this.callbacks.select(type,id);return;}
-   const record=isObject?this.objectGroups.get(id).object:(type==='node'?this.project.nodes:this.project.points).find(item=>item.id===id);
+   if(!movable){this.callbacks.select(type,id,person);return;}
+   const record=isObject?this.objectGroups.get(id).object:(type==='node'?this.project.nodes:this.subjects.find(s=>s.id===person).points).find(item=>item.id===id);
    const initial=isObject?footprint(record).center:[...record.position];
    const extent=isObject?footprintExtent(record):[.2,.2];
    const plane=new THREE.Plane(Z,-initial[2]),point=this.ray.ray.intersectPlane(plane,new THREE.Vector3());
    if(!point)return;
-   const label=this.labels.find(l=>type==='node'?l.node===id:type==='point'&&l.point===id);
-   this.drag={type,id,group:entity,plane,extent,label,offset:point.sub(v(initial)),initial,position:[...initial],start:[e.clientX,e.clientY],pointer:e.pointerId,moved:false};
-   this.controls.enabled=false;el.setPointerCapture(e.pointerId);this.callbacks.select(type,id);
+   const label=this.labels.find(l=>type==='node'?l.node===id:type==='point'&&l.point===id&&l.person===person);
+   this.drag={type,id,person,group:entity,plane,extent,label,offset:point.sub(v(initial)),initial,position:[...initial],start:[e.clientX,e.clientY],pointer:e.pointerId,moved:false};
+   this.controls.enabled=false;el.setPointerCapture(e.pointerId);this.callbacks.select(type,id,person);
   },true);
   el.addEventListener('pointermove',e=>{
    if(!this.drag){this.hover(e);return;}const d=this.drag;
@@ -319,7 +385,7 @@ export class RoomView{
   el.addEventListener('pointerup',e=>{
    if(!this.drag||this.drag.pointer!==e.pointerId)return;
    const d=this.drag;this.cancelDrag();
-   if(d.moved&&d.position.some((value,i)=>Math.abs(value-d.initial[i])>1e-7))this.callbacks.move(d.type,d.id,d.position);
+   if(d.moved&&d.position.some((value,i)=>Math.abs(value-d.initial[i])>1e-7))this.callbacks.move(d.type,d.id,d.position,d.person);
   });
   el.addEventListener('pointercancel',()=>this.cancelDrag());
   el.addEventListener('lostpointercapture',()=>this.cancelDrag());

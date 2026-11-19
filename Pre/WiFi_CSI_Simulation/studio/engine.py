@@ -11,7 +11,7 @@ from scipy.special import logsumexp
 from threadpoolctl import threadpool_limits
 from csi_sim.features import compute_features
 from csi_sim.optimized import multiscale_features, hysteresis_states
-from .project import validate, validate_route, duration, links
+from .project import validate, validate_route, duration, links, person_project
 from .geometry import Channel3D, CALIBRATION, pose, segments
 
 ASSETS=Path(__file__).parent/'assets'
@@ -138,6 +138,49 @@ def classify(scores,settings,threshold):
     return {'score':scores/(scores+max(base,1e-12)),'state':state,
             'on':threshold,'off':(settings['off_threshold']*relative)/(settings['off_threshold']*relative+base)}
 
+COMBINATIONS=('00','10','01','11')
+
+
+def decode_people(prediction, confidence_floor):
+    """Decode four joint posteriors without access to the simulated people."""
+    posterior=np.asarray(prediction['posterior'])
+    valid=np.asarray(prediction['valid'],dtype=bool)
+    finite=np.isfinite(posterior).all(axis=1)
+    safe=np.where(finite[:,None],posterior,0.)
+    klass=safe.argmax(axis=1)
+    accepted=valid&finite&(safe.max(axis=1)>=confidence_floor)
+    scores=np.column_stack((posterior[:,1]+posterior[:,3],posterior[:,2]+posterior[:,3]))
+    scores[~finite|~valid]=np.nan
+    states=np.column_stack((klass&1,klass>>1))
+    states[~accepted]=-1
+    return scores,states
+
+
+def evaluate_people(truth, states, times, events):
+    people=[]
+    for index in range(2):
+        target=truth[:,index]; state=states[:,index]
+        report=evaluate(target,state,times,events[index])
+        other_motion=(target==0)&(truth[:,1-index]==1)
+        report.update(unknown=int((state==-1).sum()),
+                      fpr=report['fp']/int((target==0).sum()) if (target==0).any() else None,
+                      crossTalk=float(np.mean(state[other_motion]==1)) if other_motion.any() else None)
+        people.append(report)
+    known=(states>=0).all(axis=1)
+    truth_index=truth[:,0]+2*truth[:,1]
+    pred_index=np.where(known,states[:,0]+2*states[:,1],4)
+    confusion=np.zeros((4,5),int)
+    np.add.at(confusion,(truth_index,pred_index),1)
+    combos=[]
+    for index,key in enumerate(COMBINATIONS):
+        row=confusion[index]; count=int(row.sum()); correct=int(row[index])
+        combos.append({'id':key,'count':count,'correct':correct,'unknown':int(row[-1]),
+                       'accuracy':correct/count if count else None})
+    return people,{'jointAccuracy':float(np.mean(truth_index==pred_index)),
+                   'coverage':float(known.mean()),'confusion':confusion,
+                   'combinations':combos}
+
+
 class Run:
     def __init__(self,project,progress=lambda p,s:None):
         start=time.perf_counter()
@@ -153,8 +196,37 @@ class Run:
         self.data=extract(self.observations,project)
         progress(75,'原始 / 优化算法')
         self.raw=predict_observations(self.data,self.names,project['radio']['rate'])
-        self.truth=pose(project,self.data['time'])['truth']
-        self.events=motion_events(project)
+        self.people_results={}
+        self.dual_metrics=None
+        if project.get('people'):
+            from .multi_detector_v3 import calibrate, geometry_config, predict
+
+            progress(84,'校准双人活动区')
+            calibration=calibrate(geometry_config(project),lambda p,s:progress(84+int(p*.08),s))
+            self.people_calibration=calibration.metadata
+            progress(94,'逐人识别动静')
+            # The detector receives the mixed capture and pre-calibrated observation model only.
+            times=self.data['time']
+            observation_prediction=predict(self.observations,project['radio']['rate'],self.names,times,calibration)
+            scores,states=decode_people(observation_prediction,calibration.confidence_threshold)
+            individuals=[person_project(project,person) for person in project['people']]
+            per_truth=np.column_stack([pose(individual,times)['truth'] for individual in individuals])
+            per_events=[motion_events(individual) for individual in individuals]
+            metrics,self.dual_metrics=evaluate_people(per_truth,states,times,per_events)
+            grid=np.arange(0,duration(project),1/project['radio']['rate'])
+            self.people_results={person['id']:{'truth':per_truth[:,i],'state':states[:,i],
+                                  'score':scores[:,i],'pose':pose(individuals[i],grid),'metrics':metrics[i]}
+                                 for i,person in enumerate(project['people'])}
+            self.truth=per_truth.max(axis=1)
+            self.events=[]
+            for event_start,event_end in sorted(event for events in per_events for event in events):
+                if self.events and event_start<=self.events[-1][1]+1e-9:
+                    self.events[-1][1]=max(event_end,self.events[-1][1])
+                else:
+                    self.events.append([event_start,event_end])
+        else:
+            self.truth=pose(project,self.data['time'])['truth']
+            self.events=motion_events(project)
         self.visual=self._visuals()
         self.seconds=time.perf_counter()-start
         progress(100,'仿真完成')
@@ -197,17 +269,21 @@ class Run:
                          'heatmap':heat,'heatTime':heat_t,
                          'spectrum':20*np.log10(np.maximum(abs(z[mask]),1e-6)),
                          'spectrumTime':st,'frequencies':f[mask]}
-        return {'time':grid,'pose':pose(self.project,grid),'traces':trace}
+        base_pose=next(iter(self.people_results.values()))['pose'] if self.people_results else pose(self.project,grid)
+        return {'time':grid,'pose':base_pose,'traces':trace}
 
     def payload(self,threshold=None):
         return plain({'project':self.project,'links':self.names,'duration':duration(self.project),
                       'seconds':self.seconds,'decisionTime':self.data['time'],'truth':self.truth,
                       'validCounts':self.data['valid'].sum(axis=1),'series':self.decisions(threshold),
                       'obstructions':{l:self.channel.direct_obstructions(l) for l in self.names},
+                      **({'peopleResults':self.people_results,'dualMetrics':self.dual_metrics}
+                         if self.people_results else {}),
                       **self.visual,
                       'metadata':{'physics':'3d-geometric-multipath-v2','calibrationSeconds':CALIBRATION,
                                   'noiseReference':'unobstructed static geometry at the same scene layout',
                                   'featureCount':{'original':16,'optimized':40},
+                                  **({'personClassifier':self.people_calibration} if self.people_results else {}),
                                   'models':{k:v['modelHash'] for k,v in self.raw.items()},
                                   'weightsOrigin':'core_optimized_20261104_v1; frozen 2D-trained models',
                                   'scoreDomain':'e/(e+frozen_threshold), e=-log(1-p)',

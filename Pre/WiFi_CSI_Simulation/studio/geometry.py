@@ -1,7 +1,7 @@
-"""Three-dimensional paths and the single authoritative human pose sequence."""
+"""Three-dimensional propagation paths and authoritative human pose sequences."""
 import numpy as np
 from .obstacles import box_prism, horizontal_axes, wall_prism
-from .project import links, duration
+from .project import links, duration, person_project
 
 C0=299_792_458.0
 CALIBRATION=10.0
@@ -50,11 +50,12 @@ def pose(project,times):
     elbows=np.zeros_like(hands)
     angle=np.zeros(len(t))
     kind=np.full(len(t),'still',dtype='<U8')
-    for s in segments(project):
+    track=segments(project)
+    for i,s in enumerate(track):
         mask=(t>=s['start'])&(t<s['end'])
-        if s['start']==0:
+        if i==0:
             mask|=t<0
-        if s['end']==duration(project):
+        if i==len(track)-1:
             mask|=t>=s['end']
         local=np.clip(t[mask]-s['start'],0,s['duration'])
         ramp=min(.3,s['duration']/3)
@@ -114,6 +115,10 @@ def fresnel(a,b,frequency_hz):
 class Channel3D:
     def __init__(self,project):
         self.project=project
+        if 'people' in project:
+            self.person_scenes=[person_project(project,person) for person in project['people']]
+        else:
+            self.person_scenes=[project] if project['present'] else []
         self.nodes={n['id']:n for n in project['nodes']}
         self.links=links(project)
         self.k=np.r_[np.arange(-28,0),np.arange(1,29)]
@@ -229,8 +234,8 @@ class Channel3D:
     def response(self,link,times):
         t=np.atleast_1d(times)
         result=np.repeat(self.background[link][None],len(t),axis=0)
-        if self.project['present']:
-            points=pose(self.project,t)['points']
+        for person_scene in self.person_scenes:
+            points=pose(person_scene,t)['points']
             distance,amplitude=self.point_paths(link,points,np.array([1,.35,.35]))
             if self.obstacles:
                 tx,rx=(self.nodes[x]['position'] for x in link)
